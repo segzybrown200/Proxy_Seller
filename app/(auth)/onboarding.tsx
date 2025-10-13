@@ -11,6 +11,10 @@ import Octicons from '@expo/vector-icons/Octicons';
 import { router } from "expo-router";
 
 const onboarding = () => {
+  const handleVisitor = () => {
+    // set visitor state and navigate to main app
+    router.push({pathname: "/(auth)/location", params: { visitor: 'true' }});
+  }
   return (
     <SafeAreaView className="flex-1 p-5">
       <View className="flex flex-row  items-center justify-between w-full">
@@ -19,7 +23,7 @@ const onboarding = () => {
           className="w-32 h-32"
           resizeMode="contain"
         />
-        <TouchableOpacity>
+        <TouchableOpacity onPress={handleVisitor} >
           <Text className="font-RalewayMedium underline cursor-pointer text-primary-100  text-2xl">
             Continue as Visitor
           </Text>

@@ -1,6 +1,6 @@
 import React from 'react'
 import { View } from 'react-native'
-import { Tabs } from 'expo-router'
+import { Tabs, usePathname } from 'expo-router'
 
 import HomeIcon from '../../assets/icons/Home.svg'
 import HomeIconFocused from '../../assets/icons/Home-focused.svg'
@@ -12,18 +12,25 @@ import BagIcon from '../../assets/icons/bag.svg'
 import BagIconFocused from '../../assets/icons/bag-focused.svg'
 
 const _layout = () => {
+  const pathname = usePathname();
+    const showTabBar =
+    pathname === "/" ||
+    pathname === "/cart" ||
+    pathname === "/search" ||
+    pathname === "/profile";
+    pathname === "/category";
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: {
+        tabBarStyle: showTabBar ? {
           backgroundColor: 'white',
           borderTopWidth: 0,
           paddingBottom: 5,
           height: 80,
           paddingTop: 10,
-        },
+        } : { display: "none" },
       }}
       backBehavior="order"
     >
@@ -64,7 +71,7 @@ const _layout = () => {
       />
       
       <Tabs.Screen
-        name="profile"
+        name="(profile)"
 
         options={{
           popToTopOnBlur: true,

@@ -68,7 +68,7 @@ const Login = () => {
           className="mt-56 w-full mb-[30px]
       "
         >
-          <TouchableOpacity className="mb-4" onPress={() => router.back()}>
+          <TouchableOpacity className="mb-4" onPress={() => router.push("/(auth)/onboarding")}>
             <FontAwesome6 name="arrow-left-long" size={25} color="black" />
           </TouchableOpacity>
           <Text className="font-RalewayBold w-[70%] text-[50px]">

@@ -9,7 +9,7 @@ import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from '../global/store';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import React from 'react';
-import { selectUser } from '../global/authSlice';
+import { selectIsVisitor, selectUser } from '../global/authSlice';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -21,6 +21,7 @@ const RootLayoutInner = () => {
   // Remove router navigation logic
 
   const isLoggedIn = useSelector(selectUser)
+  const isVisitor = useSelector(selectIsVisitor);
 
   const [fontsLoaded] = useFonts({
     'Raleway-Black': require('../assets/fonts/Raleway-Black.ttf'),
@@ -57,7 +58,7 @@ const RootLayoutInner = () => {
     <React.Fragment>
       <StatusBar style='auto'/>
       <Stack>
-        <Stack.Protected guard={!!isLoggedIn}>
+        <Stack.Protected guard={!!isLoggedIn || isVisitor }>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack.Protected>
 

@@ -12,7 +12,7 @@
     } from 'react-native';
     import { useLocalSearchParams, router } from 'expo-router';
     import { Ionicons } from '@expo/vector-icons';
-import { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 
     const { width: SCREEN_WIDTH } = Dimensions.get('window');
     const CAROUSEL_HEIGHT = 300;
@@ -22,6 +22,7 @@ import { useRef, useState } from 'react';
       const { id } = params as { id?: string };
       const scrollRef = useRef<ScrollView | null>(null);
       const [activeIndex, setActiveIndex] = useState(0);
+      const [quantity, setQuantity] = useState(0);
 
       // Placeholder product data (replace with real data later)
       const product = {
@@ -165,14 +166,37 @@ import { useRef, useState } from 'react';
           </ScrollView>
 
           {/* bottom bar */}
-          <View className="absolute left-0 right-0 bottom-0 bg-white px-4 py-4 border-t border-gray-100 flex-row items-center justify-between">
+          <View className="absolute left-0 right-0 bottom-6 bg-white px-4 py-4 border-t border-gray-100 flex-row items-center justify-between">
             <View>
               <Text className="text-gray-500 font-RalewayMedium">Price</Text>
               <Text className="text-2xl font-RalewayBold mt-1 ">{product.price}</Text>
             </View>
-            <TouchableOpacity className="bg-primary-100 px-6 py-3 rounded-lg">
-              <Text className="text-white  font-NunitoSemiBold">Add to Cart</Text>
-            </TouchableOpacity>
+            {quantity === 0 ? (
+              <TouchableOpacity
+                className="bg-primary-100 px-6 py-3 rounded-lg"
+                onPress={() => setQuantity(1)}>
+                <Text className="text-white  font-NunitoSemiBold">Add to Cart</Text>
+              </TouchableOpacity>
+            ) : (
+              <View className="flex-row items-center bg-white rounded-lg">
+                <TouchableOpacity
+                  className="px-2 py-2 bg-primary-100 rounded-l-lg"
+                  onPress={() => setQuantity(prev => {
+                    const next = prev - 1;
+                    return next < 0 ? 0 : next;
+                  })}>
+                  <Ionicons name="remove" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+                <View className="px-4 py-2">
+                  <Text className="text-lg font-NunitoBold">{quantity}</Text>
+                </View>
+                <TouchableOpacity
+                  className="px-2 py-2 bg-primary-100 rounded-r-lg"
+                  onPress={() => setQuantity(prev => prev + 1)}>
+                  <Ionicons name="add" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </SafeAreaView>
       );

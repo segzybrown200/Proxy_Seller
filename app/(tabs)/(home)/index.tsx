@@ -92,7 +92,7 @@ const index = () => {
             <Text className="text-xl font-NunitoMedium text-textColor-100">
               Popular Selling
             </Text>
-            <TouchableOpacity className="flex-row items-center gap-1">
+            <TouchableOpacity onPress={()=>router.push({pathname: "/(tabs)/(home)/listings", params: {route: "Selling"}})} className="flex-row items-center gap-1">
               <Text className="text-lg font-NunitoBold text-primary-100">
                 View All
               </Text>
@@ -139,7 +139,7 @@ const index = () => {
               </View>
             </TouchableOpacity>
 
-            <View className="mt-5 w-[49%] border rounded-lg border-primary-100">
+            <TouchableOpacity onPress={()=>router.push("/(tabs)/(home)/details")} className="mt-5 w-[49%] border rounded-lg border-primary-100">
               <Image
                 source={require("../../../assets/images/sneaker.png")}
                 className=" w-full h-40 rounded-lg border-4 border-white shadow-2xl"
@@ -166,8 +166,8 @@ const index = () => {
                   </Text>
                 </View>
               </View>
-            </View>
-            <View className="mt-5 w-[49%] border border-primary-100 rounded-lg">
+            </TouchableOpacity>
+            <TouchableOpacity onPress={()=>router.push("/(tabs)/(home)/details")} className="mt-5 w-[49%] border border-primary-100 rounded-lg">
               <Image
                 source={require("../../../assets/images/sneaker.png")}
                 className=" w-full h-40 rounded-lg border-4 border-white shadow-2xl"
@@ -197,9 +197,9 @@ const index = () => {
               <View className="bg-primary-100 p-2 rounded-b-lg absolute top-4 right-2">
                 <Text className="text-white font-NunitoLight">Verified ID</Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
-            <View className="mt-5 w-[49%] border rounded-lg border-primary-100">
+            <TouchableOpacity onPress={()=>router.push("/(tabs)/(home)/details")} className="mt-5 w-[49%] border rounded-lg border-primary-100">
               <Image
                 source={require("../../../assets/images/sneaker.png")}
                 className=" w-full h-40 rounded-lg border-4 border-white shadow-2xl"
@@ -226,7 +226,7 @@ const index = () => {
                   </Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
   
           </View>
          
@@ -238,7 +238,7 @@ const index = () => {
             <Text className="text-xl font-NunitoMedium text-textColor-100">
               New Listing
             </Text>
-            <TouchableOpacity className="flex-row items-center gap-1">
+            <TouchableOpacity onPress={()=>router.push({pathname: "/(tabs)/(home)/listings", params: {route: "Listings"}})} className="flex-row items-center gap-1">
               <Text className="text-lg font-NunitoBold text-primary-100">
                 View All
               </Text>
@@ -251,7 +251,7 @@ const index = () => {
             </TouchableOpacity>
           </View>
           <View className="flex flex-row flex-wrap justify-between gap-1">
-            <View className="mt-5 w-[49%] border border-primary-100 rounded-lg">
+            <TouchableOpacity onPress={()=>router.push("/(tabs)/(home)/details")} className="mt-5 w-[49%] border border-primary-100 rounded-lg">
               <Image
                 source={require("../../../assets/images/sneaker.png")}
                 className=" w-full h-40 rounded-lg border-4 border-white shadow-2xl"
@@ -281,9 +281,9 @@ const index = () => {
               <View className="bg-primary-100 p-2 rounded-b-lg absolute top-4 right-2">
                 <Text className="text-white font-NunitoLight">Verified ID</Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
-            <View className="mt-5 w-[49%] border rounded-lg border-primary-100">
+            <TouchableOpacity onPress={()=>router.push("/(tabs)/(home)/details")} className="mt-5 w-[49%] border rounded-lg border-primary-100">
               <Image
                 source={require("../../../assets/images/sneaker.png")}
                 className=" w-full h-40 rounded-lg border-4 border-white shadow-2xl"
@@ -310,7 +310,7 @@ const index = () => {
                   </Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
   
           </View>
           </View>
