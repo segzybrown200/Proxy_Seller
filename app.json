@@ -1,0 +1,63 @@
+{
+  "expo": {
+    "name": "Proxy",
+    "slug": "Proxy",
+    "scheme": "proxy",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/adaptive-icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon-light.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "icon": {
+        "dark": "./assets/ios-dark.png",
+        "light": "./assets/ios-light.png",
+        "tinted": "./assets/ios-tinted.png"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monchromeImage": "./assets/adaptive-icon.png",
+        "backgroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.travis03.Proxy"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-build-properties",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon-light.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image": "./assets/splash-icon-light.png",
+            "backgroundColor": "#000000"
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "76855788-5f3d-4a36-90c0-ce176741e153"
+      }
+    }
+  }
+}
