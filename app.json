@@ -7,7 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/adaptive-icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon-light.png",
       "resizeMode": "contain",
@@ -30,7 +29,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.travis03.Proxy"
+      "package": "com.ugo234.Proxy"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -38,7 +37,17 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-build-properties",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "ndk": {
+              "version": "21.4.7075529"
+            },
+            "cmakeVersion": "3.22.1"
+          }
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -56,7 +65,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "76855788-5f3d-4a36-90c0-ce176741e153"
+        "projectId": "b4dbb5b0-c100-460f-b604-cae50f9764e7"
       }
     }
   }
