@@ -29,6 +29,9 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="proxy"/>
         <data android:scheme="exp+proxy"/>
+        <data android:scheme="proxy vendor"/>
+        <data android:scheme="exp+proxyvendor"/>
+        <data android:scheme="exp+proxy-vendor"/>
       </intent-filter>
     </activity>
   </application>

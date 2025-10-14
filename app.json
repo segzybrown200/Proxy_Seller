@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Proxy",
-    "slug": "Proxy",
-    "scheme": "proxy",
+    "name": "Proxy Vendor",
+    "slug": "Proxy-Vendor",
+    "scheme": "proxy vendor",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/adaptive-icon.png",
@@ -29,7 +29,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.ugo234.Proxy"
+      "package": "com.ugo234.ProxyVendor"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -65,7 +65,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b4dbb5b0-c100-460f-b604-cae50f9764e7"
+        "projectId": "768277f4-a84b-40bc-b5d3-a692f8233d92"
       }
     }
   }

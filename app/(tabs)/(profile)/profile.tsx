@@ -13,6 +13,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { logoutState, selectIsVisitor, VisitorState } from "global/authSlice";
+import Withdrawal from "../../../assets/icons/withdrawal.svg";
 import { useDispatch, useSelector } from "react-redux";
 
 export default function ProfileScreen() {
@@ -26,64 +27,55 @@ export default function ProfileScreen() {
       route: "personal-info",
     },
     {
-      title: "Addresses",
-      icon: <MaterialIcons name="location-on" size={24} color="#8B5CF6" />,
+      title: "Withdrawal History",
+      icon: <Withdrawal width={24} height={24} color="#FF8C00" />,
       color: "#8B5CF6",
-      route: "address-list",
+      route: "withdraw",
     },
   ];
 
   const accountItems = [
     {
-      title: "Order",
+      title: "Number of Order",
       icon: <FontAwesome6 name="bag-shopping" size={24} color="#5C67F2" />,
       color: "#5C67F2",
       route: "order",
     },
     {
-      title: "Message",
-      icon: <MaterialIcons name="message" size={24} color="#FF3B30" />,
-      color: "#FF3B30",
-      route: "message",
-    },
-    {
-      title: "Notifications",
-      icon: <Ionicons name="notifications" size={24} color="#FFB800" />,
-      color: "#FFB800",
-      route: "notifications",
-    },
+      title: "User Reviews",
+      icon: <MaterialIcons name="reviews" size={24} color="#2AE1E1" />,
+      color: "#5C67F2",
+      route: "reviews",
+    }
   ];
 
   return (
     <SafeAreaView className="flex-1 bg-white">
+      <View className="bg-primary-100 p-5 mt-10 rounded-xl">
+        <View className="flex-row items-center ">
+              <TouchableOpacity className="bg-[#ECF0F4] p-2 rounded-full">
+                <Ionicons name="chevron-back" size={22} color="black" />
+              </TouchableOpacity>
+              <Text className="text-2xl ml-10 font-RalewayBold text-white">My Profile</Text>
+
+            </View>
+            <View className="flex flex-col items-center mt-5">
+              <Text className="text-xl font-RalewayRegular text-white ">Available Balance</Text>
+              <Text className="text-5xl mt-2 font-NunitoBold text-white ">₦500,000.00</Text>
+              <TouchableOpacity className="mt-4 bg-transparent px-6 p-2 rounded-lg border-2 border-white">
+                <Text className="text-white font-NunitoMedium">Withdraw</Text>
+                </TouchableOpacity>
+            </View>
+            </View>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 60 }}
       >
-        {/* Profile Header */}
-        <View className="items-center mb-8">
-          <Image
-            source={require("../../../assets/images/artist-2 2.png")}
-            className="w-24 h-24 rounded-full"
-          />
-          {select ? (
-            <Text className="text-gray-400 font-NunitoRegular text-lg i mt-2">
-              Visitor Account
-            </Text>
-          ) : (
-            <View>
-              <Text className="text-2xl font-RalewayBold mt-4">
-                Segun Micah
-              </Text>
-              <Text className="text-gray-500 text-lg font-NunitoRegular">
-                segun@example.com
-              </Text>
-            </View>
-          )}
-        </View>
+  
 
-        {select ? null : (
-          <>
+        
+        
             {/* Profile Info Section */}
             <View className="bg-[#F8F9FA] rounded-2xl p-3 mb-5">
               {menuItems.map((item, index) => (
@@ -121,8 +113,8 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-          </>
-        )}
+          
+        
 
         {/* Logout */}
         <TouchableOpacity

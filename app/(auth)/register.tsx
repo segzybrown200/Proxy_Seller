@@ -70,7 +70,7 @@ const SignUp = () => {
     setisSubmitting(true);
     Keyboard.dismiss();
 
-    router.push("/(auth)/verifyOptions");
+    router.push("/(auth)/kyc");
   };
 
   // Normalize countries and set default selection (Nigeria if available)

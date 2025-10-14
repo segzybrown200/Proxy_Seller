@@ -31,7 +31,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
 }
 expoAutolinking.useExpoModules()
 
-rootProject.name = 'Proxy'
+rootProject.name = 'Proxy Vendor'
 
 expoAutolinking.useExpoVersionCatalog()
 

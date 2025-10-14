@@ -1,4 +1,4 @@
-package com.ugo234.Proxy
+package com.ugo234.ProxyVendor
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

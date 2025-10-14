@@ -1,4 +1,4 @@
-package com.ugo234.Proxy
+package com.ugo234.ProxyVendor
 
 import android.app.Application
 import android.content.res.Configuration
