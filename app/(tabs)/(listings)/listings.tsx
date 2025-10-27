@@ -9,46 +9,82 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Dashboard from "../../../assets/icons/Dashboard.svg";
 import { SearchComponent } from "../../../components/SearchInput";
 import { router } from "expo-router";
+import { useListings } from "hooks/useHooks";
+import { useSelector } from "react-redux";
+import { selectUser } from "global/authSlice";
 
 const listings = () => {
-  const physicalListings = [
-    {
-      id: 1,
-      title: "Nike Air Zoom Sneakers",
-      description: "Comfortable sports sneakers for everyday use.",
-      price: "₦85,000",
-      image: require("../../../assets/images/sneaker.png"), // Example image
-      status: "Live",
-    },
-    {
-      id: 2,
-      title: "Wireless Headphones",
-      description: "High-quality Bluetooth headphones with long battery life.",
-      price: "₦45,000",
-      image: require("../../../assets/images/sneaker.png"),
-      status: "Live",
-    },
-  ];
+    const user:any = useSelector(selectUser)
+    const token = user?.token || ''
+  const { listings, isLoading, isError } = useListings(token)
 
-  const digitalListings = [
-    {
-      id: 1,
-      title: "UI/UX Design eBook",
-      description: "A complete guide to designing a mobile app from scratch.",
-      price: "₦15,000",
-      fileType: "PDF",
-      status: "Live",
-    },
-    {
-      id: 2,
-      title: "Photography Masterclass",
-      description:
-        "Learn professional photography skills from industry experts.",
-      price: "₦22,000",
-      fileType: "Video Course",
-      status: "Draft",
-    },
-  ];
+  // Function to format price to Naira
+  const formatPrice = (price: number) => {
+    return `₦${price.toLocaleString()}`
+  }
+
+  const transformListings = (data: any[]) => {
+    if (!data) return { physical: [], digital: [] }
+    
+    return data.reduce((acc: { physical: any[], digital: any[] }, item: any) => {
+      const transformedItem = {
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        price: formatPrice(item.price),
+        priceRaw: item.price,
+        priceCents: item.priceCents,
+        stock: item.stock,
+        condition: item.condition,
+        isDigital: item.isDigital,
+        media: item.media,
+        extraDetails: item.extraDetails,
+        category: item.category,
+        status: item.status === "PENDING" ? "PENDING" : item.status === "APPROVED" ? "APPROVED" : item.status,
+        image: item.media && item.media.length > 0 
+          ? { uri: item.media[0].url } 
+          : require("../../../assets/images/sneaker.png"),
+        fileType: item.isDigital ? "Digital Product" : undefined
+      }
+
+      if (item.isDigital) {
+        acc.digital.push(transformedItem)
+      } else {
+        acc.physical.push(transformedItem)
+      }
+
+      return acc
+    }, { physical: [], digital: [] })
+  }
+
+
+  const { physical: physicalListings, digital: digitalListings } = transformListings(listings?.data || [])
+
+  if (isLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-[#F9FAFB] p-4">
+        <View className="flex-1 items-center justify-center">
+          <Text className="font-NunitoSemiBold text-lg text-gray-600">Loading listings...</Text>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
+  if (isError) {
+    return (
+      <SafeAreaView className="flex-1 bg-[#F9FAFB] p-4">
+        <View className="flex-1 items-center justify-center">
+          <Text className="font-NunitoSemiBold text-lg text-red-500">Failed to load listings</Text>
+          <TouchableOpacity 
+            className="mt-4 bg-primary-100 px-4 py-2 rounded-lg"
+            onPress={() => router.reload()}
+          >
+            <Text className="font-NunitoSemiBold text-white">Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    )
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-[#F9FAFB] p-4">
@@ -70,14 +106,19 @@ const listings = () => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        className="mt-5 space-y-8"
+        className="mt-5 mb-20 space-y-8"
       >
         {/* PHYSICAL LISTINGS */}
         <View>
           <Text className="font-NunitoSemiBold text-lg mb-4">
             Physical Listings
           </Text>
-          {physicalListings.map((item) => (
+          {physicalListings.length === 0 ? (
+            <View className="bg-white rounded-2xl p-4 mb-4 shadow-sm items-center">
+              <Text className="font-NunitoRegular text-gray-500">No physical listings found</Text>
+            </View>
+          ) : (
+            physicalListings.map((item) => (
             <TouchableOpacity
             onPress={()=>router.push("/(tabs)/(listings)/details")}
               key={item.id}
@@ -87,9 +128,11 @@ const listings = () => {
                 <Text className="font-NunitoBold text-xl">{item.title}</Text>
                 <Text
                   className={`font-NunitoBold text-base ${
-                    item.status === "Live"
+                    item.status === "APPROVED"
                       ? "text-green-500"
-                      : "text-yellow-500"
+                      : item.status === "PENDING"
+                      ? "text-yellow-500"
+                      : "text-red-600"
                   }`}
                 >
                   {item.status}
@@ -108,14 +151,34 @@ const listings = () => {
 
               <View className="flex-row justify-between items-center">
                 <Text className="font-NunitoBold text-lg">{item.price}</Text>
-                <TouchableOpacity className="bg-primary-100 px-4 py-2 rounded-lg">
+                <TouchableOpacity 
+                  className="bg-primary-100 px-4 py-2 rounded-lg"
+                  onPress={() => router.push({
+                    pathname: "/(tabs)/(listings)/details",
+                    params: {
+                      id: item.id,
+                      title: item.title,
+                      description: item.description,
+                      price: item.price,
+                      priceRaw: item.priceRaw,
+                      priceCents: item.priceCents,
+                      status: item.status,
+                      condition:item.condition,
+                      images: JSON.stringify(item.media || []),
+                      extraDetails: JSON.stringify(item.extraDetails),
+                      stock: item.stock,
+                      isDigital: item.isDigital ? "true" : "false",
+                      category: JSON.stringify(item.category || null),
+                    }
+                  })}
+                >
                   <Text className="font-NunitoSemiBold text-white">
                     View Details
                   </Text>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
-          ))}
+          )))}
         </View>
 
         {/* DIGITAL LISTINGS */}
@@ -123,7 +186,12 @@ const listings = () => {
           <Text className="font-NunitoSemiBold text-lg mb-4">
             Digital Listings
           </Text>
-          {digitalListings.map((item) => (
+          {digitalListings.length === 0 ? (
+            <View className="bg-white rounded-2xl p-4 mb-4 shadow-sm items-center">
+              <Text className="font-NunitoRegular text-gray-500">No digital listings found</Text>
+            </View>
+          ) : (
+            digitalListings.map((item) => (
             <TouchableOpacity
               key={item.id}
               className="bg-white rounded-2xl p-4 mb-4 shadow-sm"
@@ -132,9 +200,11 @@ const listings = () => {
                 <Text className="font-NunitoBold text-xl">{item.title}</Text>
                 <Text
                   className={`font-NunitoBold text-base ${
-                    item.status === "Live"
+                    item.status === "APPROVED"
                       ? "text-green-500"
-                      : "text-yellow-500"
+                      : item.status === "PENDING"
+                      ? "text-yellow-500"
+                      : "text-red-600"
                   }`}
                 >
                   {item.status}
@@ -152,14 +222,34 @@ const listings = () => {
                     {item.fileType}
                   </Text>
                 </View>
-                <TouchableOpacity className="bg-primary-100 px-4 py-2 rounded-lg">
+                <TouchableOpacity 
+                  className="bg-primary-100 px-4 py-2 rounded-lg"
+                  onPress={() => router.push({
+                    pathname: "/(tabs)/(listings)/details",
+                    params: {
+                      id: item.id,
+                      title: item.title,
+                      description: item.description,
+                      price: item.price,
+                      priceRaw: item.priceRaw,
+                      priceCents: item.priceCents,
+                      status: item.status,
+                      condition:item.condition,
+                      images: JSON.stringify(item.media || []),
+                      extraDetails: JSON.stringify(item.extraDetails),
+                      stock: item.stock,
+                      isDigital: item.isDigital ? "true" : "false",
+                      category: JSON.stringify(item.category || null),
+                    }
+                  })}
+                >
                   <Text className="font-NunitoSemiBold text-white">
                     View Details
                   </Text>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
-          ))}
+          )))}
         </View>
       </ScrollView>
     </SafeAreaView>

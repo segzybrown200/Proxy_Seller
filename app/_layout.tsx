@@ -10,6 +10,9 @@ import { store, persistor } from '../global/store';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import React from 'react';
 import { selectIsVisitor, selectUser } from '../global/authSlice';
+import Toast from 'react-native-toast-message';
+import { View,Text } from 'react-native';
+import { SessionProvider } from "../global/SessionProvider";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -66,6 +69,23 @@ const RootLayoutInner = () => {
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
+      <Toast 
+       position="top"
+        config={{
+          success: ({ text1, text2 }) => (
+            <View className="bg-primary-100 w-[80%] mt-6 rounded-xl px-4 py-3">
+              <Text className="text-white text-xl font-RalewayExtraBold ">{text1}</Text>
+              <Text className="text-white text-lg font-NunitoMedium">{text2}</Text>
+            </View>
+          ),
+          error: ({ text1, text2 }) => (
+            <View className="bg-red-500 w-[80%] mt-6 rounded-xl px-4 py-3">
+              <Text className="text-white text-xl font-RalewayExtraBold">{text1}</Text>
+              <Text className="text-white text-lg font-NunitoMedium">{text2}</Text>
+            </View>
+          ),
+        }}
+        />
     </React.Fragment>
   );
 };
@@ -74,7 +94,9 @@ const RootLayout = () => (
   <Provider store={store}>
     <PersistGate loading={null} persistor={persistor}>
       <GestureHandlerRootView style={{ flex: 1 }}>
+        <SessionProvider>
         <RootLayoutInner />
+        </SessionProvider>
       </GestureHandlerRootView>
     </PersistGate>
   </Provider>

@@ -28,6 +28,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import countryData from "../../assets/data/countries.json";
 import Apple from "../../assets/icons/Apple.svg"
 import Google from "../../assets/icons/Google.svg"
+import { createSeller } from "../../api/api";
+import { showError } from "utils/toast";
 
 const SignUp = () => {
   const [isSubmitting, setisSubmitting] = useState(false);
@@ -61,16 +63,38 @@ const SignUp = () => {
 
   const submit = (data: any) => {
     const FinalData = {
-      full_Name: data.name || data.fullName,
+      name: data.name,
       password: data.password,
       email: data.email,
-      phone: `${selectedArea?.dial_code || ''}${data.phone}`,
-      country: selectedArea?.name?.common || selectedArea?.name || "",
+      phone: `${selectedArea?.dial_code || ''}${data.phone}`
     };
     setisSubmitting(true);
     Keyboard.dismiss();
+    createSeller(FinalData).then((response => {
+      setisSubmitting(false);
+      router.push({
+        pathname: '/(auth)/verifyOptions',
+        params: {
+          email: data.email,
+          phone: FinalData.phone,
+          vendorId: response.data.data.vendorId
+        }
+      });
+    })).catch((error) => {
+      setisSubmitting(false);
+      if(error?.code === "KYC_PENDING"){
+        showError("KYC verification is still pending. Please complete your KYC to proceed.");
+        setTimeout(() => {
+          router.push({pathname: "/(auth)/verifyOptions", params: {email: error.details.email, phone: error.details.phone, id: error.details.vendorId}});
+        return;
+        }, 3000);
+      }else{
+        setisSubmitting(false)
+        const errorMessage = error?.message || 'An error occurred. Please try again.';
+        showError(error.message)
+      }
+    })
 
-    router.push("/(auth)/kyc");
   };
 
   // Normalize countries and set default selection (Nigeria if available)

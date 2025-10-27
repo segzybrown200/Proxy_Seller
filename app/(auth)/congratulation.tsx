@@ -23,8 +23,11 @@ const congratulation = () => {
         <Text className="text-center self-center font-RalewayBold mt-4  text-[40px]">
           Congratulations
         </Text>
-        <Text className="font-NunitoLight text-xl text-center self-center mt-4 w-[70%]">
-          U have successfully registered as a user, Shop well
+        <Text className="font-NunitoLight text-xl text-center mt-4 px-6" style={{ flexShrink: 1 }}>
+          Congratulations — your account has been created successfully!
+        </Text>
+        <Text className="font-NunitoLight text-base text-center mt-4 px-6 text-gray-600" style={{ flexShrink: 1 }}>
+          Your KYC documents have been submitted and will be reviewed by our team. Once an administrator approves your KYC, you will receive an email with the outcome. Please keep an eye on your inbox (and spam folder) for updates.
         </Text>
       </View>
     </SafeAreaView>

@@ -22,6 +22,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Apple from "../../assets/icons/Apple.svg"
 import Google from "../../assets/icons/Google.svg"
 import { loginState } from "global/authSlice";
+import { loginSeller } from "api/api";
+import { showError } from "utils/toast";
 
 const Login = () => {
   const [isSubmitting, setisSubmitting] = useState(false);
@@ -46,9 +48,21 @@ const Login = () => {
       email: data.email,
     };
     setisSubmitting(true);
-    Keyboard.dismiss();
-    dispatch(loginState(FinalData));
-    setisSubmitting(false);
+    loginSeller(FinalData)
+      .then((response) => {
+        setisSubmitting(false);
+        dispatch(loginState(response.data?.data));
+      })
+      .catch((error) => {
+        setisSubmitting(false);
+        console.log(error)
+        if(error?.code === "VENDOR_PENDING"){
+          showError("Your vendor application is still pending. Please continue checking your mail to see if you are approved and Try again later.");
+          return;
+        }
+        showError(error?.message || 'Login failed. Please try again.');
+      });
+
   };
 
   const scrollRef = useRef<ScrollView>(null);

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "442305561853",
+    "project_id": "proxy-seller-81b2d",
+    "storage_bucket": "proxy-seller-81b2d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:442305561853:android:90429f4953d3e50624aa94",
+        "android_client_info": {
+          "package_name": "com.ugo234.ProxyVendor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDzs3lGG1M2C51Ba2YYCR55aoed4cChKAQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

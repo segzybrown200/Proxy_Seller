@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* index.css */
+body {
+  font-family: "Raleway", sans-serif;
+}
+
+/* Optionally target chart text elements */
+svg text {
+  font-family: "Raleway", sans-serif !important;
+}

@@ -17,6 +17,15 @@ import * as FileSystem from "expo-file-system";
 import { router } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { createListing } from "api/api";
+import mime from "mime";
+import { useSelector } from "react-redux";
+import { selectUser } from "global/authSlice";
+import { showError, showSuccess } from "utils/toast";
+import { useCategory } from "hooks/useHooks";
+import CustomButton from "components/CustomButton";
+import { mutate } from "swr";
+
 
 const schema = Yup.object().shape({
   listName: Yup.string().required("List name is required"),
@@ -34,8 +43,6 @@ const schema = Yup.object().shape({
     .oneOf(["new", "used"])
     .required("Condition is required"),
   details: Yup.string().required("Details are required"),
-  city: Yup.string().required("City is required"),
-  country: Yup.string().required("Country is required"),
   descriptions: Yup.array().of(
     Yup.object().shape({
       title: Yup.string().required("Title required"),
@@ -45,17 +52,25 @@ const schema = Yup.object().shape({
 });
 
 const addproduct = () => {
+
   const [media, setMedia] = useState<{ uri: string; type: string }[]>([]);
   const [negotiable, setNegotiable] = useState(false);
   const [digitalFile, setDigitalFile] = useState<any>(null);
   const [digitalFiles, setDigitalFiles] = useState<
     { uri: string; name?: string; size?: number; mimeType?: string }[]
   >([]);
+  const {categories, isError, isLoading} = useCategory()
+  const [categoryOpen, setCategoryOpen] = useState(false)
+  const user:any = useSelector(selectUser)
+  const tokens = user?.token || ''
+  const [loading, setLoading] = useState(false);
+
 
   const {
     control,
     handleSubmit,
     formState: { errors },
+    reset
   } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
@@ -64,8 +79,6 @@ const addproduct = () => {
       quantity: 0,
       category: "",
       details: "",
-      city: "",
-      country: "",
       listingType: "physical",
       condition: "new",
       descriptions: [],
@@ -138,6 +151,9 @@ const addproduct = () => {
    const removeDigitalFile = (index: number) => {
     setDigitalFiles((prev) => prev.filter((_, i) => i !== index));
   };
+  const removeMedia = (index: number) => {
+    setMedia((prev) => prev.filter((_, i) => i !== index));
+  };
   // 📂 Handle digital file upload
   const handleSelectDigitalFiles = async () => {
     try {
@@ -147,7 +163,6 @@ const addproduct = () => {
           "application/pdf",
           "application/epub+zip",
           "application/zip",
-          "*/*",
         ],
         multiple: true,
         copyToCacheDirectory: true,
@@ -205,28 +220,69 @@ const addproduct = () => {
     }
   };
 
-  const onSubmit = (data: any) => {
-    // Additional client-side validation for digital listing
+  const onSubmit = async (data: any) => {
+    setLoading(true);
+  try {
     if (data.listingType === "digital" && digitalFiles.length === 0) {
-      Alert.alert("Missing file", "Please upload at least one digital file for digital listings.");
+      setLoading(false);
+      showError("Please upload at least one digital file for digital listings.");
       return;
     }
 
-    // Compose final payload
-    const payload = {
-      ...data,
-      negotiable,
-      media,
-      digitalFiles,
-    };
+ // from auth store
+    const formData = new FormData();
 
-    console.log("Submitting product:", payload);
-    Alert.alert("Success", "Product submitted successfully!");
-    // TODO: send payload to your backend (FormData for files)
-  };
+    formData.append("title", data.listName);
+    formData.append("description", data.details);
+    formData.append("price", data.price.toString());
+    formData.append("stock", data.quantity.toString());
+    formData.append("categoryId", data.category);
+    formData.append("isDigital", data.listingType === "digital" ? "true" : "");
+    formData.append("condition", data.condition);
+    formData.append("extraDetails", JSON.stringify(data.descriptions));
+
+    // Attach media (images/videos)
+    for (const file of media) {
+      const fileName = file.uri.split("/").pop();
+      const mimeType = mime.getType(file.uri) || "image/jpeg";
+      formData.append("media", {
+        uri: file.uri,
+        name: fileName,
+        type: mimeType,
+      } as any);
+    }
+
+    // Attach digital files
+    for (const file of digitalFiles) {
+      const fileName = file.name || file.uri.split("/").pop();
+      const mimeType = file.mimeType || mime.getType(file.uri) || "application/octet-stream";
+      formData.append("digitalFiles", {
+        uri: file.uri,
+        name: fileName,
+        type: mimeType,
+      } as any);
+    }
+    console.log(formData)
+
+    createListing( formData, tokens).then((response) => {
+      showSuccess("Listing created successfully!");
+
+      mutate("/listings/vendor")
+      router.replace("/(tabs)/(listings)/listings")
+      console.log(response.data)
+    }).catch((error) => {
+      showError(error.response?.data?.message || "Failed to upload listing");
+    }).finally(() => {
+      setLoading(false);
+      reset()
+    })
+  } catch (error: any) {
+    showError("An unexpected error occurred. Please try again.");
+  }
+};
 
   return (
-    <ScrollView className="flex-1 bg-white p-5">
+    <ScrollView showsVerticalScrollIndicator={false} className="flex-1 bg-white p-5">
       <View className="flex-row items-center mt-14 mb-10">
         <TouchableOpacity
           onPress={() => router.back()}
@@ -344,7 +400,7 @@ const addproduct = () => {
         </>
       )}
 
-      {/* Digital File Upload */}
+      {/* Digital File Upload + Preview Images */}
       {listingType === "digital" && (
         <View className="mt-4">
           <Text className="font-RalewaySemiBold text-lg">Upload Digital File(s)</Text>
@@ -379,6 +435,34 @@ const addproduct = () => {
               ))}
             </View>
           )}
+
+          {/* Preview images for digital product */}
+          <Text className="font-RalewaySemiBold text-lg mt-4">Preview Images</Text>
+          <Text className="text-sm text-gray-500 font-NunitoLight mb-2">Upload images that will serve as previews/thumbnails for your digital product.</Text>
+
+          <View className="flex-row flex-wrap gap-3">
+            {media.map((item, index) => (
+              <View key={index} className="relative">
+                <Image
+                  source={{ uri: item.uri }}
+                  className="w-20 h-20 rounded-lg"
+                />
+                <TouchableOpacity
+                  onPress={() => removeMedia(index)}
+                  className="absolute top-0 right-0 bg-white rounded-full p-1"
+                >
+                  <Text className="text-red-500">×</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              onPress={handleSelectMedia}
+              className="w-20 h-20 border-2 border-dashed border-gray-400 rounded-lg items-center justify-center"
+            >
+              <Text className="text-gray-400 font-NunitoMedium text-lg">Add</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -445,12 +529,61 @@ const addproduct = () => {
         control={control}
         name="category"
         render={({ field: { onChange, value } }) => (
-          <TextInput
-            placeholder="e.g. Electronics"
-            value={value}
-            onChangeText={onChange}
-            className="border font-NunitoMedium text-lg border-gray-300 rounded-xl px-4 py-3 mt-2"
-          />
+          <>
+            {/* Show selected label or placeholder */}
+            <TouchableOpacity
+              onPress={() => setCategoryOpen((s) => !s)}
+              className="border font-NunitoMedium text-lg border-gray-300 rounded-xl px-4 py-3 mt-2 flex-row justify-between items-center"
+            >
+              <Text className={`font-NunitoLight ${value ? 'text-gray-900' : 'text-gray-400'}`}>
+                {(() => {
+                  const selected = categories.categories?.find((c: any) => (c._id === value || c.id === value || String(c._id) === String(value) || String(c.id) === String(value)));
+                  return selected?.name || selected?.categoryName || selected?.title || selected?.label || (value ? String(value) : 'Select category');
+                })()}
+              </Text>
+              <Ionicons name={categoryOpen ? 'chevron-up' : 'chevron-down'} size={20} color="#444" />
+            </TouchableOpacity>
+
+            {categoryOpen && (
+              <View className="border border-gray-200 rounded-lg mt-2 max-h-48">
+                {isLoading ? (
+                  <View className="p-3">
+                    <Text className="text-gray-500 font-NunitoRegular">Loading categories...</Text>
+                  </View>
+                  ) : (
+                    <ScrollView
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={true}
+                      keyboardShouldPersistTaps="handled"
+                      style={{ maxHeight: 200 }}
+                    >
+                    {Array.isArray(categories.categories) && categories.categories.length > 0 ? (
+                      categories.categories?.map((cat: any) => {
+                        const id = cat._id || cat.id || cat.uid || String(cat)
+                        const name = cat.name || cat.categoryName || cat.title || String(cat)
+                        return (
+                          <TouchableOpacity
+                            key={id}
+                            onPress={() => {
+                              onChange(String(id))
+                              setCategoryOpen(false)
+                            }}
+                            className="px-4 py-3 border-b border-gray-100"
+                          >
+                            <Text className="text-base font-NunitoLight">{name}</Text>
+                          </TouchableOpacity>
+                        )
+                      })
+                    ) : (
+                      <View className="p-3">
+                        <Text className="text-gray-500 font-NunitoRegular">No categories available</Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                )}
+              </View>
+            )}
+          </>
         )}
       />
       {errors.category && (
@@ -537,55 +670,11 @@ const addproduct = () => {
         </Text>
       )}
 
-      {/* City */}
-      <Text className="font-RalewaySemiBold text-lg mt-4">City</Text>
-      <Controller
-        control={control}
-        name="city"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            placeholder="Enter city"
-            value={value}
-            onChangeText={onChange}
-            className="border font-NunitoMedium text-lg border-gray-300 rounded-xl px-4 py-3 mt-2"
-          />
-        )}
-      />
-      {errors.city && (
-        <Text className="text-red-500 font-NunitoLight text-sm">
-          {errors.city.message}
-        </Text>
-      )}
-
-      {/* Country */}
-      <Text className="font-RalewaySemiBold text-lg mt-4">Country</Text>
-      <Controller
-        control={control}
-        name="country"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            placeholder="Enter country"
-            value={value}
-            onChangeText={onChange}
-            className="border font-NunitoMedium text-lg border-gray-300 rounded-xl px-4 py-3 mt-2"
-          />
-        )}
-      />
-      {errors.country && (
-        <Text className="text-red-500 font-NunitoLight text-sm">
-          {errors.country.message}
-        </Text>
-      )}
+      
 
       {/* Submit */}
-      <TouchableOpacity
-        onPress={handleSubmit(onSubmit)}
-        className="bg-[#004CFF] py-4 rounded-xl mt-8 items-center mb-48"
-      >
-        <Text className="text-white font-NunitoLight text-base">
-          SAVE CHANGES
-        </Text>
-      </TouchableOpacity>
+        <CustomButton handlePress1={handleSubmit(onSubmit)} isLoading={loading} title="SAVE CHANGES" containerStyles="mt-8 mb-72" />
+        
     </ScrollView>
   );
 };
