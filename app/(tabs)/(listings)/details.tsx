@@ -1,14 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
-  Image,
+  RefreshControl,
   Dimensions,
   Linking,
   SafeAreaView,
 } from "react-native";
+import { Image } from 'expo-image';
 import { Ionicons, Entypo } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 
@@ -16,6 +17,19 @@ const { width } = Dimensions.get("window");
 
 export default function ListDetailsScreen() {
   const params: any = useLocalSearchParams();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // no specific mutate available on this screen; short delay fallback
+      await new Promise((r) => setTimeout(r, 800));
+    } catch (e) {
+      console.warn('Refresh failed', e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   const {
     title,
@@ -72,9 +86,8 @@ export default function ListDetailsScreen() {
   const mediaObjects = safeParseArray(passedImages || media);
   const parsedImages = extractImageUrls(mediaObjects);
   const [images] = useState(parsedImages.length > 0 ? parsedImages : [defaultImage]);
-  // Finding images with fileType of image/Jpeg
-  const parseImages = JSON.parse(passedImages)
-  const imageOfJpeg:any = parseImages.filter((type:any)=> type.mimeType === "image/jpeg")
+  // Finding images with fileType of image/jpeg (safe parse)
+  const imageOfJpeg: any[] = (mediaObjects || []).filter((type: any) => type?.mimeType === "image/jpeg");
   const [activeIndex, setActiveIndex] = useState(0);
   const [verifiedDocs, setVerifiedDocs] = useState<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {};
@@ -104,6 +117,9 @@ export default function ListDetailsScreen() {
   const categoryObj = parseJsonIfString(category || params.category) || null;
   const isDigitalBool = String(isDigital) === "true" || isDigital === true;
 
+
+
+
   const formatPriceDisplay = (p: any, pCents: any) => {
     if ((!p || p === '') && pCents) return `₦${(Number(pCents) / 100).toLocaleString()}`;
     if (typeof p === "string") {
@@ -118,6 +134,8 @@ export default function ListDetailsScreen() {
   const displayPrice = formatPriceDisplay(price || priceRaw || params.priceRaw, priceCents || params.priceCents);
   const displayStatus = (status === "PENDING") ? "Pending" : (status === "APPROVED" ? "Approved" : status);
 
+  console.log(isDigital);
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
@@ -129,12 +147,29 @@ export default function ListDetailsScreen() {
           <Ionicons name="chevron-back" size={22} color="black" />
         </TouchableOpacity>
         <Text className="text-xl font-RalewayBold">List Details</Text>
-        <TouchableOpacity onPress={() => router.push("/(tabs)/(listings)/edit-listings") }>
+        <TouchableOpacity onPress={() => {
+          // Pass all listing data to edit screen
+          router.push({
+            pathname: "/(tabs)/(listings)/edit-listings",
+            params: {
+              id: params.id,
+              title: title,
+              price: priceRaw,
+              stock: stock,
+              category: categoryObj?.id || categoryObj?._id,
+              description: description,
+              isDigital: isDigital,
+              condition: condition,
+              media: JSON.stringify(media || []),
+              extraDetails: JSON.stringify(extraDetails || [])
+            }
+          });
+        }}>
           <Text className="text-[#004CFF] font-RalewayBold text-lg">EDIT</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+  <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         {/* Image Carousel */}
         {
           !isDigitalBool && (
@@ -153,10 +188,10 @@ export default function ListDetailsScreen() {
                 style={{
                   width,
                   height: 220,
-                  resizeMode: "cover",
                   borderRadius: 20,
                   marginRight: 10,
                 }}
+                contentFit="cover"
               />
             ))}
           </ScrollView>
@@ -191,10 +226,10 @@ export default function ListDetailsScreen() {
                 style={{
                   width,
                   height: 220,
-                  resizeMode: "cover",
                   borderRadius: 20,
                   marginRight: 10,
                 }}
+                contentFit="cover"
               />
             ))}
           </ScrollView>

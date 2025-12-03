@@ -11,12 +11,12 @@ import {
   Linking,
 } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useSelector } from 'react-redux'
-import { selectUser } from '../../global/authSlice'
 import Ionicons from 'react-native-vector-icons/Ionicons'
 import { vendorAddress } from 'api/api'
 import { showError, showSuccess } from 'utils/toast'
+import { useSelector } from 'react-redux'
+import { selectUser } from 'global/authSlice'
+import { mutate } from 'swr'
 
 // Replace with your Google Places API key or wire it from secure env
 const GOOGLE_PLACES_API_KEY = 'AIzaSyCLCcDMey2l91ZTwuT3avheF5R85-klUcM' // <YOUR_GOOGLE_PLACES_API_KEY>
@@ -35,8 +35,8 @@ const AddAddress = () => {
   const [city, setCity] = useState<string | null>(null)
   const [country, setCountry] = useState<string | null>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
-  const { vendorId } = useLocalSearchParams();
-
+const user: any = useSelector(selectUser);
+  const vendorId = user?.user?.vendorApplicationId || "";
 
 
 
@@ -133,7 +133,8 @@ const AddAddress = () => {
       await vendorAddress(payload)
       setLoading(false)
       showSuccess('Address saved successfully')
-      router.replace('/(auth)/congratulation')
+      mutate("/vendor/get-vendor")
+      router.push('/(tabs)')
     } catch (error: any) {
       setLoading(false)
       console.log(error)

@@ -4,15 +4,17 @@ import * as SplashScreen from 'expo-splash-screen';
 import '../global.css';
 import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
-import { Provider, useSelector } from 'react-redux';
+import { Provider, useDispatch, useSelector } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from '../global/store';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import React from 'react';
-import { selectIsVisitor, selectUser } from '../global/authSlice';
+import { logoutState, selectIsVisitor, selectUser } from '../global/authSlice';
 import Toast from 'react-native-toast-message';
 import { View,Text } from 'react-native';
 import { SessionProvider } from "../global/SessionProvider";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUserAuth } from 'api/api';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -22,9 +24,9 @@ SplashScreen.setOptions({
 });
 const RootLayoutInner = () => {
   // Remove router navigation logic
-
-  const isLoggedIn = useSelector(selectUser)
-  const isVisitor = useSelector(selectIsVisitor);
+  const dispatch = useDispatch();
+  const isLoggedIn:any = useSelector(selectUser);
+  const [checking, setChecking] = React.useState(true);
 
   const [fontsLoaded] = useFonts({
     'Raleway-Black': require('../assets/fonts/Raleway-Black.ttf'),
@@ -46,6 +48,49 @@ const RootLayoutInner = () => {
     'Nunito-SemiBold': require('../assets/fonts/Nunito-SemiBold.ttf'),
   });
 
+    useEffect(() => {
+    const verifyUser = async () => {
+      // Not logged in → no need to check
+      if (!isLoggedIn) {
+        setChecking(false);
+        return;
+      }
+
+      // try {
+        const res = await getUserAuth(isLoggedIn?.token || "").then((res) => {
+          console.log(res?.data)
+          
+        }).catch((err) => {
+          console.error("error",err)
+          if (err.message === "User is banned") {
+            // 🔥 USER BANNED
+            dispatch(logoutState());
+            AsyncStorage.removeItem("seller_sessionIds");
+            AsyncStorage.removeItem("userLocation");
+            Toast.show({
+              type: "error",
+              text1: "Account Banned",
+              text2: "You no longer have access to this app.",
+            });
+          }
+          // Invalid token
+          if (err.message || err.error === "User not found" || err.status || err.error === "Token missing" || err.message || err.error === "Authorization header missing" || err.error || err.message === "Invalid token") {
+            // ❌ Token expired or user deleted
+            dispatch(logoutState());
+            AsyncStorage.removeItem("seller_sessionIds");
+            AsyncStorage.removeItem("userLocation");
+          }
+  
+        });
+
+ 
+
+      setChecking(false);
+    };
+
+    verifyUser();
+  }, [isLoggedIn]);
+
   useEffect(() => {
     if (!fontsLoaded) return;
 
@@ -55,13 +100,13 @@ const RootLayoutInner = () => {
 
   // Conditional rendering for onboarding
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded || checking) return null;
 
   return (
     <React.Fragment>
       <StatusBar style='auto'/>
       <Stack>
-        <Stack.Protected guard={!!isLoggedIn || isVisitor }>
+        <Stack.Protected guard={!!isLoggedIn }>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack.Protected>
 

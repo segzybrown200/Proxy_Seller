@@ -1,10 +1,12 @@
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   ScrollView,
+  RefreshControl,
 } from "react-native";
+import { Image } from 'expo-image';
 import { SafeAreaView } from "react-native-safe-area-context";
 import Dashboard from "../../../assets/icons/Dashboard.svg";
 import { SearchComponent } from "../../../components/SearchInput";
@@ -16,7 +18,20 @@ import { selectUser } from "global/authSlice";
 const listings = () => {
     const user:any = useSelector(selectUser)
     const token = user?.token || ''
-  const { listings, isLoading, isError } = useListings(token)
+  const { listings, isLoading, isError, mutate } = useListings(token)
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (typeof mutate === 'function') await mutate();
+      else await new Promise((r) => setTimeout(r, 800));
+    } catch (e) {
+      console.warn('Refresh failed', e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [mutate]);
 
   // Function to format price to Naira
   const formatPrice = (price: number) => {
@@ -86,6 +101,8 @@ const listings = () => {
     )
   }
 
+  console.log(physicalListings[0].media)
+
   return (
     <SafeAreaView className="flex-1 bg-[#F9FAFB] p-4">
       {/* Header */}
@@ -107,6 +124,7 @@ const listings = () => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         className="mt-5 mb-20 space-y-8"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* PHYSICAL LISTINGS */}
         <View>
@@ -120,7 +138,24 @@ const listings = () => {
           ) : (
             physicalListings.map((item) => (
             <TouchableOpacity
-            onPress={()=>router.push("/(tabs)/(listings)/details")}
+            onPress={() => router.push({
+                    pathname: "/(tabs)/(listings)/details",
+                    params: {
+                      id: item.id,
+                      title: item.title,
+                      description: item.description,
+                      price: item.price,
+                      priceRaw: item.priceRaw,
+                      priceCents: item.priceCents,
+                      status: item.status,
+                      condition:item.condition,
+                      images: JSON.stringify(item.media || []),
+                      extraDetails: JSON.stringify(item.extraDetails),
+                      stock: item.stock,
+                      isDigital: item.isDigital ? "true" : "false",
+                      category: JSON.stringify(item.category || null),
+                    }
+                  })}
               key={item.id}
               className="bg-white rounded-2xl p-4 mb-4 shadow-sm"
             >
@@ -142,7 +177,7 @@ const listings = () => {
               <Image
                 source={ item.image }
                 className="w-full h-40 rounded-xl mb-3"
-                resizeMode="cover"
+                contentFit="cover"
               />
 
               <Text className="font-NunitoRegular text-gray-500 mb-3">

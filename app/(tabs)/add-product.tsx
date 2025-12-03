@@ -1,13 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Image,
+  RefreshControl,
   Alert,
 } from "react-native";
+import { Image } from 'expo-image';
 import { useForm, Controller, useFieldArray, useWatch } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as Yup from "yup";
@@ -64,6 +65,19 @@ const addproduct = () => {
   const user:any = useSelector(selectUser)
   const tokens = user?.token || ''
   const [loading, setLoading] = useState(false);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // fallback: short delay (no specific mutate here)
+      await new Promise((r) => setTimeout(r, 800));
+    } catch (e) {
+      console.warn('Refresh failed', e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
 
   const {
@@ -273,16 +287,22 @@ const addproduct = () => {
     }).catch((error) => {
       showError(error.response?.data?.message || "Failed to upload listing");
     }).finally(() => {
+      // always stop loading, reset the form and clear any selected files
       setLoading(false);
-      reset()
+      reset();
+      setMedia([]);
+      setDigitalFiles([]);
+      setDigitalFile(null);
     })
   } catch (error: any) {
     showError("An unexpected error occurred. Please try again.");
   }
 };
 
+
+
   return (
-    <ScrollView showsVerticalScrollIndicator={false} className="flex-1 bg-white p-5">
+    <ScrollView showsVerticalScrollIndicator={false} className="flex-1 bg-white p-5" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
       <View className="flex-row items-center mt-14 mb-10">
         <TouchableOpacity
           onPress={() => router.back()}
@@ -382,11 +402,19 @@ const addproduct = () => {
           </Text>
           <View className="flex-row flex-wrap gap-3">
             {media.map((item, index) => (
-              <Image
-                key={index}
-                source={{ uri: item.uri }}
-                className="w-20 h-20 rounded-lg"
-              />
+              <View key={index} className="relative">
+                <Image
+                  source={{ uri: item.uri }}
+                  className="w-20 h-20 rounded-lg"
+                  contentFit="cover"
+                />
+                <TouchableOpacity
+                  onPress={() => removeMedia(index)}
+                  className="absolute top-0 right-0 bg-white rounded-full p-1"
+                >
+                  <Text className="text-red-500">×</Text>
+                </TouchableOpacity>
+              </View>
             ))}
             <TouchableOpacity
               onPress={handleSelectMedia}
@@ -446,6 +474,7 @@ const addproduct = () => {
                 <Image
                   source={{ uri: item.uri }}
                   className="w-20 h-20 rounded-lg"
+                  contentFit="cover"
                 />
                 <TouchableOpacity
                   onPress={() => removeMedia(index)}
@@ -482,19 +511,6 @@ const addproduct = () => {
             />
           )}
         />
-        <TouchableOpacity
-          onPress={() => setNegotiable(!negotiable)}
-          className="ml-2 flex-row items-center"
-        >
-          <View
-            className={`w-5 h-5 rounded border ${
-              negotiable ? "bg-[#004CFF]" : "border-gray-400"
-            }`}
-          />
-          <Text className="ml-1 text-gray-700 font-NunitoSemiBold">
-            Negotiable
-          </Text>
-        </TouchableOpacity>
       </View>
       {errors.price && (
         <Text className="text-red-500 font-NunitoLight text-sm">

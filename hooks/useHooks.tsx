@@ -1,4 +1,4 @@
-import { getCategory, getDashboardStats, getListings, getOrders, getVendor } from "api/api"
+import { getAllMessages, getCategory, getConversions, getDashboardStats, getListings, getOrders, getVendor } from "api/api"
 import useSWR  from "swr"
 import { SWRConfiguration } from "swr"
 
@@ -21,13 +21,22 @@ export function useCategory() {
         provider: typeof window !== 'undefined' ? localStorageProvider : undefined,
     };
     const { data, error, isLoading, mutate } = useSWR("/admin/get-category", fetcher, swrConfig);
-    
-    return {
-        categories: data?.data || [],
-        isLoading,
-        isError: error,
-        mutate,
-    };
+  // Normalize categories to always be an array. Backend may return different shapes.
+  const raw = data?.data;
+  let categories: any[] = [];
+  if (Array.isArray(raw)) categories = raw;
+  else if (raw && Array.isArray(raw.categories)) categories = raw.categories;
+  else if (raw && Array.isArray(raw.data)) categories = raw.data;
+
+  return {
+    // Keep backward-compatible shape (some components expect `categories.categories`)
+    categories: { categories: categories || [] },
+    // Also expose a flat array for components that expect an array
+    categoriesList: categories || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
 }
 export const useListings = (token:string)=>{
     const fetcher = (token:string) => getListings(token);
@@ -70,6 +79,27 @@ export const useDashboardStats = (token:string)=>{
     };
 
 }
+export const useMessages = (token:string)=>{
+    const fetcher = (token:string) => getAllMessages(token);
+
+    const { data, error, isLoading ,mutate} = useSWR(
+    token ? `/messages/messages/chats` : null,
+    ()=>fetcher(token),
+    {
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      revalidateOnMount: true, // Ensure it fetches when the component 
+       refreshInterval: 1000, 
+    }
+  );
+    return {
+        messages: data?.data || [],
+        isLoading,
+        isError: error,
+        mutate,
+    };
+
+}
 export const useVendors = (id:string, token:string)=>{
     const fetcher = (id:string, token:string) => getVendor(id,token);
 
@@ -104,6 +134,27 @@ export const useOrders = (token:string)=>{
   );
     return {
         orders: data?.data || [],
+        isLoading,
+        isError: error,
+        mutate,
+    };
+
+}
+export const useGetConversions = (id:string, token:string)=>{
+    const fetcher = (id:string, token:string) => getConversions(id,token);
+    
+    const { data, error, isLoading ,mutate} = useSWR(
+    token ? `/messages/${id}` : null,
+    ()=>fetcher(id,token),
+    {
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      revalidateOnMount: true, // Ensure it fetches when the component 
+      refreshInterval: 10000, // Refresh every 30 seconds
+    }
+  );
+    return {
+        messages: data?.data || [],
         isLoading,
         isError: error,
         mutate,

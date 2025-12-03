@@ -22,33 +22,34 @@ const OrderScreen = () => {
   const { isLoading, orders:data, isError } = useOrders(token);
 
 
-  const orders = useMemo(() => data?.data?.orders ?? [], [data]);
+  const orders = useMemo(() => data?.data ?? [], [data]);
+
 
   const renderItem = ({ item }: any) => (
     <TouchableOpacity
       onPress={() =>
         router.push({
           pathname: "/(tabs)/(profile)/track-order",
-          params: { id: item.id },
+          params: { order: JSON.stringify(item, null,2) },
         })
       }
       activeOpacity={0.8}
       className="bg-white rounded-lg mx-2 my-2 p-3 flex-row items-center justify-between"
     >
-      <View className="flex-row items-center">
+      <View className="flex-row w-[60%] items-center">
         <Image
           source={{
             uri:
-              item.listing?.media?.[0]?.url ||
+              item.listings[0]?.image ||
               "https://via.placeholder.com/100",
           }}
           className="w-16 h-16 rounded-md mr-3"
         />
         <View>
           <Text className="text-lg font-RalewaySemiBold text-black">
-            {item.listing?.title || "Untitled"}
+            {item.listings[0]?.title || "Untitled"}
           </Text>
-          <Text className="text-base w-[80%] font-NunitoLight text-primary-100 mt-1">
+          <Text numberOfLines={2} className="text-base  font-NunitoLight text-primary-100 mt-1">
             {item.delivery?.dropoffAddress || "No address"}
           </Text>
         </View>
@@ -60,7 +61,7 @@ const OrderScreen = () => {
         </Text>
         <Text
           className={`text-base mt-1 font-NunitoMedium ${
-            item.status === "COMPLETED"
+            item.status === "DELIVERED"
               ? "text-green-500"
               : "text-primary-100"
           }`}

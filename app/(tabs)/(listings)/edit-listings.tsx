@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,35 +8,41 @@ import {
   Image,
   Alert,
 } from "react-native";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { useForm, Controller, useFieldArray, useWatch } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as Yup from "yup";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as FileSystem from "expo-file-system";
+import { router, useLocalSearchParams } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import { useLocalSearchParams, router } from "expo-router";
+import { updateListing } from "api/api";
+import mime from "mime";
+import { useSelector } from "react-redux";
+import { selectUser } from "global/authSlice";
+import { showError, showSuccess } from "utils/toast";
+import { useCategory } from "hooks/useHooks";
+import CustomButton from "components/CustomButton";
+import { mutate } from "swr";
 
 const schema = Yup.object().shape({
-  listName: Yup.string().required("List name is required"),
+  title: Yup.string().required("Title is required"),
   price: Yup.number()
     .typeError("Enter a valid price")
     .required("Price is required"),
-  quantity: Yup.number()
+  stock: Yup.number()
     .typeError("Enter a valid quantity")
     .required("Quantity is required"),
-  category: Yup.string().required("Category is required"),
+  categoryId: Yup.string().required("Category is required"),
   listingType: Yup.string()
     .oneOf(["physical", "digital"])
     .required("Listing type is required"),
   condition: Yup.string()
     .oneOf(["new", "used"])
     .required("Condition is required"),
-  details: Yup.string().required("Details are required"),
-  city: Yup.string().required("City is required"),
-  country: Yup.string().required("Country is required"),
-  descriptions: Yup.array().of(
+  description: Yup.string().required("Description is required"),
+  extraDetails: Yup.array().of(
     Yup.object().shape({
       title: Yup.string().required("Title required"),
       description: Yup.string().required("Description required"),
@@ -44,59 +50,96 @@ const schema = Yup.object().shape({
   ),
 });
 
-const EditList = () => {
-  const params = useLocalSearchParams();
-  const listData = params.list ? JSON.parse(params.list as string) : null;
-
-  const [media, setMedia] = useState<{ uri: string; type: string }[]>(
-    listData?.media || []
-  );
-  const [negotiable, setNegotiable] = useState(listData?.negotiable || false);
+export default function EditListingScreen() {
+  const params: any = useLocalSearchParams();
+  const [media, setMedia] = useState<Array<{ uri: string; type: string }>>([]);
+  const [replaceMedia, setReplaceMedia] = useState(false);
   const [digitalFiles, setDigitalFiles] = useState<
     { uri: string; name?: string; size?: number; mimeType?: string }[]
-  >(listData?.digitalFiles || []);
+  >([]);
+  const { categories, isError, isLoading } = useCategory();
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const user: any = useSelector(selectUser);
+  const token = user?.token || '';
+  const [loading, setLoading] = useState(false);
+  // console.log("hello",categories?.categories.find((item)=>item.id === ))
+  
 
   const {
     control,
     handleSubmit,
-    reset,
     formState: { errors },
+    reset,
+    setValue
   } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
-      listName: listData?.listName || "",
-      price: listData?.price || 0,
-      quantity: listData?.quantity || 0,
-      category: listData?.category || "",
-      details: listData?.details || "",
-      city: listData?.city || "",
-      country: listData?.country || "",
-      listingType: listData?.listingType || "physical",
-      condition: listData?.condition || "new",
-      descriptions: listData?.descriptions || [],
+      title: "",
+      price: 0,
+      stock: 0,
+      categoryId: "",
+      description: "",
+      listingType: "physical",
+      condition: "new",
+      extraDetails: [],
     },
   });
+  // Initialize form with existing data once (guarded)
+  const initialized = useRef(false);
+  useEffect(() => {
+    // run only once per listing id to avoid infinite update loops
+    if (initialized.current) return;
+    if (!params?.id) return;
+    initialized.current = true;
+
+    try {
+      const parsedDetails = params.extraDetails
+        ? (typeof params.extraDetails === 'string' ? JSON.parse(params.extraDetails) : params.extraDetails)
+        : [];
+
+      const parsedMedia = params.media
+        ? (typeof params.media === 'string' ? JSON.parse(params.media) : params.media)
+        : [];
+
+      const initialForm = {
+        title: params.title || '',
+        price: Number(params.price ?? params.priceRaw ?? 0) || 0,
+        stock: Number(params.stock ?? 0) || 0,
+        categoryId: params.category || (params.category && (params.category.id || params.category._id)) || '',
+        description: params.description || '',
+        listingType: (params.isDigital === true || String(params.isDigital) === 'true') ? 'digital' as const : 'physical' as const,
+        condition: params.condition || 'new',
+        extraDetails: Array.isArray(parsedDetails) ? parsedDetails : [],
+      };
+
+      // Reset the form once so useFieldArray renders the items correctly
+      reset(initialForm);
+
+      if (Array.isArray(parsedMedia) && parsedMedia.length > 0) {
+        setMedia(parsedMedia.map((m: any) => ({ uri: m.url || m.uri || m.path, type: m.mimeType || 'image/jpeg' })));
+        setReplaceMedia(false);
+      }
+    } catch (err) {
+      console.error('Error initializing edit form:', err);
+    }
+  }, [params?.id]);
 
   const { fields, append, remove } = useFieldArray({
     control,
-    name: "descriptions",
+    name: "extraDetails",
   });
 
-  useEffect(() => {
-    if (listData) reset(listData);
-  }, [listData]);
+  const listingType = useWatch({ control, name: "listingType" });
 
-  // 📸 Image selection
   const handleSelectMedia = async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.status !== "granted") {
-      alert("Permission to access gallery is required!");
+      Alert.alert("Permission Required", "Permission to access gallery is required!");
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: [ImagePicker.MediaType.image, ImagePicker.MediaType.video],
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsMultipleSelection: true,
       quality: 0.7,
     });
@@ -104,314 +147,401 @@ const EditList = () => {
     if (!result.canceled) {
       const selectedMedia = await Promise.all(
         result.assets.map(async (asset) => {
-          if (asset.type === "image") {
-            const compressed = await ImageManipulator.manipulateAsync(
-              asset.uri,
-              [],
-              { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
-            );
-            return { uri: compressed.uri, type: asset.type };
-          }
-          const fileInfo = await FileSystem.getInfoAsync(asset.uri);
-          return { uri: asset.uri, type: asset.type, size: fileInfo.size };
+          const compressed = await ImageManipulator.manipulateAsync(
+            asset.uri,
+            [],
+            { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
+          );
+          return {
+            uri: compressed.uri,
+            type: 'image/jpeg',
+          };
         })
       );
-      setMedia((prev: any) => [...prev, ...selectedMedia]);
+
+      setMedia((prev) => [...prev, ...selectedMedia]);
+      setReplaceMedia(true); // Set to true when new media is added
     }
   };
 
-  // 📂 Digital files
-  const handleSelectDigitalFiles = async () => {
+  const removeMedia = (index: number) => {
+    setMedia((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const onSubmit = async (data: any) => {
     try {
-      const res = await DocumentPicker.getDocumentAsync({
-        type: ["application/pdf", "application/zip", "*/*"],
-        multiple: true,
-        copyToCacheDirectory: true,
-      });
+      setLoading(true);
 
-      if (res.type === "cancel") return;
-
-      if ((res as any).assets) {
-        const items = (res as any).assets.map((a: any) => ({
-          uri: a.uri,
-          name: a.name,
-          size: a.size,
-          mimeType: a.mimeType,
-        }));
-        setDigitalFiles((prev) => [...prev, ...items]);
-      } else if ((res as any).uri) {
-        const single = res as any;
-        const info = await FileSystem.getInfoAsync(single.uri);
-        setDigitalFiles((prev) => [
-          ...prev,
-          { uri: single.uri, name: single.name, size: info.size },
-        ]);
+      if (!token) {
+        Alert.alert("Error", "You need to be logged in to update your listing");
+        return;
       }
-    } catch (err) {
-      Alert.alert("Error", "Could not pick document(s). Try again.");
+
+      // Prepare form data
+      const formData = new FormData();
+      formData.append("title", data.title);
+      formData.append("description", data.description);
+      formData.append("price", data.price.toString());
+      formData.append("priceCents", (data.price * 100).toString());
+      formData.append("stock", data.stock.toString());
+      formData.append("categoryId", data.categoryId);
+      formData.append("condition", data.condition);
+      formData.append("isDigital", data.listingType === "digital" ? "true" : "");
+      formData.append("replaceMedia", replaceMedia.toString());
+
+      if (data.extraDetails && data.extraDetails.length > 0) {
+        formData.append("extraDetails", JSON.stringify(data.extraDetails));
+      }
+
+      // Append media files
+      if (media.length > 0) {
+        media.forEach(async (m, index) => {
+          const fileInfo = await FileSystem.getInfoAsync(m.uri);
+          if (fileInfo.exists) {
+            const fileExtension = m.uri.split('.').pop();
+            const mimeType = mime.getType(fileExtension || '') || 'application/octet-stream';
+            formData.append('media', {
+              uri: m.uri,
+              type: mimeType,
+              name: `media_${index}.${fileExtension}`,
+            } as any);
+          }
+        });
+      }
+
+      // Make the API call
+      console.log(token)
+      console.log(params.id)
+      const response = await updateListing(params.id,formData, token);
+      console.log(response.data)
+      
+      showSuccess("Listing updated successfully");
+      router.back();
+      
+      // Optionally refresh the listings data
+      mutate('/api/listings');
+      
+    } catch (error: any) {
+      console.error(error);
+      showError(error?.message || "Failed to update listing");
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const removeDigitalFile = (index: number) => {
-    setDigitalFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  // ✅ Update Handler
-  const onSubmit = (data: any) => {
-    const payload = {
-      ...data,
-      negotiable,
-      media,
-      digitalFiles,
-    };
-
-    console.log("Updated product:", payload);
-    Alert.alert("Success", "List updated successfully!");
-    router.back();
   };
 
   return (
     <ScrollView className="flex-1 bg-white p-5">
       {/* Header */}
-      <View className="flex-row items-center mt-14 mb-10">
+      <View className="flex-row items-center mt-10">
         <TouchableOpacity
           onPress={() => router.back()}
           className="bg-[#ECF0F4] rounded-full p-2 mr-3"
         >
           <Ionicons name="chevron-back" size={24} color="black" />
         </TouchableOpacity>
-        <Text className="text-2xl font-NunitoBold">Edit List Details</Text>
+        <Text className="text-xl font-NunitoBold">Edit Listing</Text>
       </View>
 
-      {/* List Name */}
-      <Text className="font-RalewayMedium uppercase text-lg mb-2">List Name</Text>
-      <Controller
-        control={control}
-        name="listName"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            placeholder="List Name"
-            value={value}
-            onChangeText={onChange}
-            className="border font-NunitoMedium border-gray-300 text-lg rounded-xl px-4 py-4 mb-2"
-          />
+      {/* Form Fields */}
+      <View className="mt-6">
+        <Text className="text-sm text-gray-600 font-NunitoSemiBold mb-1">TITLE</Text>
+        <Controller
+          control={control}
+          name="title"
+          render={({ field: { onChange, value } }) => (
+            <TextInput
+              className="bg-[#F1F5F9] rounded-xl p-4 mb-4 font-NunitoRegular"
+              value={value}
+              onChangeText={onChange}
+            />
+          )}
+        />
+        {errors.title && (
+          <Text className="text-red-500 mb-2">{errors.title.message}</Text>
         )}
-      />
-      {errors.listName && (
-        <Text className="text-red-500 font-NunitoLight text-sm">
-          {errors.listName.message}
-        </Text>
-      )}
 
-      {/* Listing Type */}
-      <Text className="font-RalewaySemiBold text-lg mt-4">Listing Type</Text>
-      <Controller
-        control={control}
-        name="listingType"
-        render={({ field: { onChange, value } }) => (
-          <View className="flex-row justify-between mt-2">
-            {["physical", "digital"].map((type) => (
-              <TouchableOpacity
-                key={type}
-                onPress={() => onChange(type)}
-                className={`flex-1 mx-1 py-3 rounded-xl border ${
-                  value === type
-                    ? "border-[#004CFF] bg-[#004CFF]/10"
-                    : "border-gray-300"
-                }`}
-              >
-                <Text
-                  className={`text-center font-NunitoSemiBold capitalize ${
-                    value === type ? "text-[#004CFF]" : "text-gray-700"
-                  }`}
-                >
-                  {type}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      />
-
-      {/* Condition */}
-      <Text className="font-RalewaySemiBold text-lg mt-4">Condition</Text>
-      <Controller
-        control={control}
-        name="condition"
-        render={({ field: { onChange, value } }) => (
-          <View className="flex-row justify-between mt-2">
-            {["new", "used"].map((cond) => (
-              <TouchableOpacity
-                key={cond}
-                onPress={() => onChange(cond)}
-                className={`flex-1 mx-1 py-3 rounded-xl border ${
-                  value === cond
-                    ? "border-[#004CFF] bg-[#004CFF]/10"
-                    : "border-gray-300"
-                }`}
-              >
-                <Text
-                  className={`text-center font-NunitoSemiBold capitalize ${
-                    value === cond ? "text-[#004CFF]" : "text-gray-700"
-                  }`}
-                >
-                  {cond}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      />
-
-      {/* Media Section */}
-      <Text className="font-RalewayMedium uppercase text-lg mt-4 mb-2">
-        Upload Photo/Video
-      </Text>
-      <View className="flex-row flex-wrap gap-3">
-        {media.map((item, index) => (
-          <Image
-            key={index}
-            source={{ uri: item.uri }}
-            className="w-20 h-20 rounded-lg"
-          />
-        ))}
-        <TouchableOpacity
-          onPress={handleSelectMedia}
-          className="w-20 h-20 border-2 border-dashed border-gray-400 rounded-lg items-center justify-center"
-        >
-          <Text className="text-gray-400 font-NunitoMedium text-lg">Add</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Price */}
-      <Text className="font-RalewayMedium uppercase text-lg mt-4">Price</Text>
-      <View className="flex-row items-center justify-between border border-gray-300 rounded-xl px-4 py-3 mt-2">
+        <Text className="text-sm text-gray-600 font-NunitoSemiBold mb-1">PRICE</Text>
         <Controller
           control={control}
           name="price"
           render={({ field: { onChange, value } }) => (
             <TextInput
-              placeholder="₦5000"
+              className="bg-[#F1F5F9] rounded-xl p-4 mb-4 font-NunitoRegular"
+              value={value?.toString()}
+              onChangeText={(text) => onChange(parseFloat(text) || 0)}
               keyboardType="numeric"
-              value={String(value)}
-              onChangeText={onChange}
-              className="flex-1 font-NunitoMedium text-lg"
             />
           )}
         />
-        <TouchableOpacity
-          onPress={() => setNegotiable(!negotiable)}
-          className="ml-2 flex-row items-center"
-        >
-          <View
-            className={`w-5 h-5 rounded border ${
-              negotiable ? "bg-[#004CFF]" : "border-gray-400"
-            }`}
-          />
-          <Text className="ml-1 text-gray-700 font-NunitoSemiBold">
-            Negotiable
+        {errors.price && (
+          <Text className="text-red-500 mb-2">{errors.price.message}</Text>
+        )}
+
+        <Text className="text-sm text-gray-600 font-NunitoSemiBold mb-1">STOCK</Text>
+        <Controller
+          control={control}
+          name="stock"
+          render={({ field: { onChange, value } }) => (
+            <TextInput
+              className="bg-[#F1F5F9] rounded-xl p-4 mb-4 font-NunitoRegular"
+              value={value?.toString()}
+              onChangeText={(text) => onChange(parseInt(text) || 0)}
+              keyboardType="numeric"
+            />
+          )}
+        />
+        {errors.stock && (
+          <Text className="text-red-500 mb-2">{errors.stock.message}</Text>
+        )}
+
+        <Text className="text-sm text-gray-600 font-NunitoSemiBold mb-1">CATEGORY</Text>
+        <Controller
+          control={control}
+          name="categoryId"
+          render={({ field: { onChange, value } }) => (
+            <>
+              <TouchableOpacity
+                onPress={() => setCategoryOpen((s) => !s)}
+                className="bg-[#F1F5F9] rounded-xl p-4 mb-2 flex-row justify-between items-center"
+              >
+                <Text className="font-NunitoRegular">
+                  {(() => {
+                    // support multiple shapes returned from useCategory
+                    const list = Array.isArray(categories) ? categories : (categories && (categories.categories || categories.data)) || [];
+                    const selected = list.find((c: any) => (c.id === value || c._id === value || String(c.id) === String(value) || String(c._id) === String(value)));
+                    return selected?.name || selected?.categoryName || selected?.title || (value ? String(value) : 'Select Category');
+                  })()}
+                </Text>
+                <Ionicons name={categoryOpen ? 'chevron-up' : 'chevron-down'} size={20} color="#444" />
+              </TouchableOpacity>
+
+              {categoryOpen && (
+                <View className="border border-gray-200 rounded-lg mt-2 max-h-48">
+                  {isLoading ? (
+                    <View className="p-3">
+                      <Text className="text-gray-500 font-NunitoRegular">Loading categories...</Text>
+                    </View>
+                  ) : (
+                    <ScrollView
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={true}
+                      keyboardShouldPersistTaps="handled"
+                      style={{ maxHeight: 200 }}
+                    >
+                      {(() => {
+                        const list = Array.isArray(categories) ? categories : (categories && (categories.categories || categories.data)) || [];
+                        return list.length > 0 ? (
+                          list.map((cat: any) => {
+                            const id = cat._id || cat.id || String(cat);
+                            const name = cat.name || cat.categoryName || cat.title || String(cat);
+                            return (
+                              <TouchableOpacity
+                                key={id}
+                                onPress={() => { onChange(String(id)); setCategoryOpen(false); }}
+                                className="px-4 py-3 border-b border-gray-100"
+                              >
+                                <Text className="text-base font-NunitoLight">{name}</Text>
+                              </TouchableOpacity>
+                            );
+                          })
+                        ) : (
+                          <View className="p-3">
+                            <Text className="text-gray-500 font-NunitoRegular">No categories available</Text>
+                          </View>
+                        );
+                      })()}
+                    </ScrollView>
+                  )}
+                </View>
+              )}
+            </>
+          )}
+        />
+        {errors.categoryId && (
+          <Text className="text-red-500 mb-2">{errors.categoryId.message}</Text>
+        )}
+
+        <Text className="text-sm text-gray-600 font-NunitoSemiBold mb-1">CONDITION</Text>
+        <Controller
+          control={control}
+          name="condition"
+          render={({ field: { onChange, value } }) => (
+            <View className="flex-row space-x-4 mb-4">
+              <TouchableOpacity
+                onPress={() => onChange("new")}
+                className={`flex-1 p-4 rounded-xl ${
+                  value === "new" ? "bg-[#004CFF]" : "bg-[#F1F5F9]"
+                }`}
+              >
+                <Text
+                  className={`text-center font-NunitoSemiBold ${
+                    value === "new" ? "text-white" : "text-black"
+                  }`}
+                >
+                  New
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => onChange("used")}
+                className={`flex-1 p-4 rounded-xl ${
+                  value === "used" ? "bg-[#004CFF]" : "bg-[#F1F5F9]"
+                }`}
+              >
+                <Text
+                  className={`text-center font-NunitoSemiBold ${
+                    value === "used" ? "text-white" : "text-black"
+                  }`}
+                >
+                  Used
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        />
+
+        <Text className="font-RalewaySemiBold text-lg mt-4">Listing Type</Text>
+        <Controller
+          control={control}
+          name="listingType"
+          render={({ field: { onChange, value } }) => (
+            <View className="flex-row justify-between mt-2">
+              {["physical", "digital"].map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  onPress={() => onChange(type)}
+                  className={`flex-1 mx-1 py-3 rounded-xl border 
+                    ${value === type ? "border-[#004CFF] bg-[#004CFF]/10" : "border-gray-300"}`}
+                >
+                  <Text
+                    className={`text-center font-NunitoSemiBold capitalize 
+                      ${value === type ? "text-[#004CFF]" : "text-gray-700"}`}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        />
+        {errors.listingType && (
+          <Text className="text-red-500 font-NunitoLight text-sm">
+            {errors.listingType.message}
           </Text>
+        )}
+
+        <Text className="text-sm text-gray-600 font-NunitoSemiBold mb-1">DESCRIPTION</Text>
+        <Controller
+          control={control}
+          name="description"
+          render={({ field: { onChange, value } }) => (
+            <TextInput
+              className="bg-[#F1F5F9] rounded-xl p-4 mb-4 font-NunitoRegular"
+              value={value}
+              onChangeText={onChange}
+              multiline
+              numberOfLines={4}
+            />
+          )}
+        />
+        {errors.description && (
+          <Text className="text-red-500 mb-2">{errors.description.message}</Text>
+        )}
+
+        {/* Media Section */}
+        <Text className="text-sm text-gray-600 font-NunitoSemiBold mb-1">MEDIA</Text>
+        <TouchableOpacity
+          onPress={handleSelectMedia}
+          className="bg-[#F1F5F9] rounded-xl p-4 mb-4 items-center"
+        >
+          <Ionicons name="cloud-upload-outline" size={24} color="#004CFF" />
+          <Text className="text-[#004CFF] mt-2">Upload Media</Text>
         </TouchableOpacity>
+
+        {media.length > 0 && (
+          <ScrollView horizontal className="mb-4">
+            {media.map((item, index) => (
+              <View key={index} className="relative mr-4">
+                <Image
+                  source={{ uri: item.uri }}
+                  className="w-20 h-20 rounded-lg"
+                />
+                <TouchableOpacity
+                  onPress={() => removeMedia(index)}
+                  className="absolute top-1 right-1 bg-red-500 rounded-full p-1"
+                >
+                  <Ionicons name="close" size={12} color="white" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* Extra Details */}
+        <View className="mb-4">
+          <View className="flex-row justify-between items-center mb-2">
+            <Text className="text-sm text-gray-600 font-NunitoSemiBold">
+              ADDITIONAL DETAILS
+            </Text>
+            <TouchableOpacity
+              onPress={() => append({ title: "", description: "" })}
+              className="bg-[#004CFF] rounded-full p-2"
+            >
+              <Ionicons name="add" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
+
+          {fields.map((field, index) => (
+            <View key={field.id} className="mb-4">
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-sm text-gray-600">Detail {index + 1}</Text>
+                <TouchableOpacity
+                  onPress={() => remove(index)}
+                  className="bg-red-500 rounded-full p-2"
+                >
+                  <Ionicons name="trash" size={16} color="white" />
+                </TouchableOpacity>
+              </View>
+
+              <Controller
+                control={control}
+                name={`extraDetails.${index}.title`}
+                render={({ field: { onChange, value } }) => (
+                  <TextInput
+                    className="bg-[#F1F5F9] rounded-xl p-4 mb-2 font-NunitoRegular"
+                    placeholder="Title"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
+              />
+
+              <Controller
+                control={control}
+                name={`extraDetails.${index}.description`}
+                render={({ field: { onChange, value } }) => (
+                  <TextInput
+                    className="bg-[#F1F5F9] rounded-xl p-4 font-NunitoRegular"
+                    placeholder="Description"
+                    value={value}
+                    onChangeText={onChange}
+                    multiline
+                    numberOfLines={2}
+                  />
+                )}
+              />
+            </View>
+          ))}
+        </View>
+
+        {/* Submit Button */}
+        <CustomButton
+        containerStyles="mb-32"
+          title="Update Listing"
+          handlePress1={handleSubmit(onSubmit)}
+          isLoading={loading}
+          disabled={loading}
+        />
       </View>
-
-      {/* Quantity */}
-      <Text className="font-RalewaySemiBold text-lg mt-4 ">Quantity</Text>
-      <Controller
-        control={control}
-        name="quantity"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            placeholder="10"
-            keyboardType="numeric"
-            value={String(value)}
-            onChangeText={onChange}
-            className="border border-gray-300 font-NunitoMedium text-lg rounded-xl px-4 py-3 mt-2"
-          />
-        )}
-      />
-
-      {/* Category */}
-      <Text className="font-RalewaySemiBold text-lg mt-4">Category</Text>
-      <Controller
-        control={control}
-        name="category"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            placeholder="e.g. Electronics"
-            value={value}
-            onChangeText={onChange}
-            className="border font-NunitoMedium text-lg border-gray-300 rounded-xl px-4 py-3 mt-2"
-          />
-        )}
-      />
-
-      {/* Details */}
-      <Text className="font-RalewaySemiBold text-lg mt-4">Details</Text>
-      <Controller
-        control={control}
-        name="details"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            value={value}
-            onChangeText={onChange}
-            multiline
-            placeholder="Enter details..."
-            className="border font-NunitoMedium text-lg border-gray-300 rounded-xl px-4 py-3 mt-2 min-h-[100px]"
-          />
-        )}
-      />
-
-      {/* City */}
-      <Text className="font-RalewaySemiBold text-lg mt-4">City</Text>
-      <Controller
-        control={control}
-        name="city"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            placeholder="Enter city"
-            value={value}
-            onChangeText={onChange}
-            className="border font-NunitoMedium text-lg border-gray-300 rounded-xl px-4 py-3 mt-2"
-          />
-        )}
-      />
-      {errors.city && (
-        <Text className="text-red-500 font-NunitoLight text-sm">
-          {errors.city.message}
-        </Text>
-      )}
-
-      {/* Country */}
-      <Text className="font-RalewaySemiBold text-lg mt-4">Country</Text>
-      <Controller
-        control={control}
-        name="country"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            placeholder="Enter country"
-            value={value}
-            onChangeText={onChange}
-            className="border font-NunitoMedium text-lg border-gray-300 rounded-xl px-4 py-3 mt-2"
-          />
-        )}
-      />
-      {errors.country && (
-        <Text className="text-red-500 font-NunitoLight text-sm">
-          {errors.country.message}
-        </Text>
-      )}
-
-      {/* Save Button */}
-      <TouchableOpacity
-        onPress={handleSubmit(onSubmit)}
-        className="bg-[#004CFF] py-4 rounded-xl mt-8 items-center mb-48"
-      >
-        <Text className="text-white font-NunitoLight text-base">
-          UPDATE LIST
-        </Text>
-      </TouchableOpacity>
     </ScrollView>
   );
-};
-
-export default EditList;
+}

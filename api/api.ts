@@ -50,6 +50,25 @@ export const resendOTPEmail = async(data:{email:string}) => {
     throw error.response?.data || error;
   });
 }
+export const getUserAuth = async(token:string) => {
+  return api.get(`/auth/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).catch((error) => {
+    throw error.response?.data || error;
+  });
+}
+
+export const markMessagesAsRead = async(senderId: string, token: string) => {
+  return api.post("/messages/read", { senderId }, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).catch((error) => {
+    throw error.response?.data || error;
+  });
+}
 
 export const sendOTPEmail = async(data:{email:string, phone: string, verifyOption: string}) => {
   return api.post("/auth/send-otp",  data ).catch((error) => {
@@ -110,6 +129,27 @@ export const getVendor = async(id:string, token:string) => {
     throw error.response?.data || error;
   })
 }
+export const getListingById = async(id:string, token:string) => {
+  return api.get(`/listings/get-vendor/${id}`,
+        {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }}
+  ).catch((error) => {
+    throw error.response?.data || error;
+  })
+}
+
+export const getAllMessages = async(token:string) => {
+  return api.get(`/messages/messages/chats`,
+        {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }}
+  ).catch((error) => {
+    throw error.response?.data || error;
+  })
+}
 export const getOrders = async(token:string) => {
   return api.get(`/vendor/orders`,
         {
@@ -119,4 +159,43 @@ export const getOrders = async(token:string) => {
   ).catch((error) => {
     throw error.response?.data || error;
   })
+}
+export const getConversions = async(otherUserId:string, token:string) => {
+  return api.get(`/messages/${otherUserId}`,{
+     headers: {
+          Authorization: `Bearer ${token}`,
+        }
+  }).catch((error) => {
+    throw error.response?.data || error;
+  });
+}
+export const updateListing = async (id:string, data:any, token:string) => {
+  return await api.put(`/listings/update/${id}`, data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "multipart/form-data",
+    },
+  }).catch((error) => {
+    throw error.response?.data || error;
+  });
+};
+export const pushOrderRider = async (id:string, token:string) => {
+  return await axios.post(`/vendor/push-order-to-rider/${id}`,  {
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+  }).catch((error) => {
+    console.log(error)
+    throw error.response?.data || error;
+  });
+};
+
+export const updateVendor = async(data: {name?: string, email?: string, phone?: string}, token: string) => {
+  return api.put('/vendor/update', data, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).catch((error) => {
+    throw error.response?.data || error;
+  });
 }
