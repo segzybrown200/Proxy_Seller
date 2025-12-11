@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -36,7 +36,8 @@ const schema = Yup.object().shape({
   quantity: Yup.number()
     .typeError("Enter a valid quantity")
     .required("Quantity is required"),
-  category: Yup.string().required("Category is required"),
+  categoryId: Yup.string().required("Category is required"),
+  subcategoryId: Yup.string().required("Subcategory is required"),
   listingType: Yup.string()
     .oneOf(["physical", "digital"])
     .required("Listing type is required"),
@@ -50,7 +51,22 @@ const schema = Yup.object().shape({
       description: Yup.string().required("Description required"),
     })
   ),
+}).test("images-required", "At least one image is required", function(data) {
+  return (data as any).media && Array.isArray((data as any).media) && (data as any).media.length > 0;
 });
+
+type FormValues = {
+  listName: string;
+  price: number;
+  quantity: number;
+  categoryId: string;
+  subcategoryId: string;
+  listingType: "physical" | "digital";
+  condition: "new" | "used";
+  details: string;
+  descriptions: { title: string; description: string }[];
+  media: { uri: string; type: string }[];
+};
 
 const addproduct = () => {
 
@@ -62,9 +78,12 @@ const addproduct = () => {
   >([]);
   const {categories, isError, isLoading} = useCategory()
   const [categoryOpen, setCategoryOpen] = useState(false)
+  const [subcategoryOpen, setSubcategoryOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<any>(null)
   const user:any = useSelector(selectUser)
   const tokens = user?.token || ''
   const [loading, setLoading] = useState(false);
+
 
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
@@ -83,21 +102,33 @@ const addproduct = () => {
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
     reset
-  } = useForm({
-    resolver: yupResolver(schema),
+  } = useForm<any>({
+    resolver: yupResolver(schema) as any,
     defaultValues: {
       listName: "",
       price: 0,
       quantity: 0,
-      category: "",
+      categoryId: "",
+      subcategoryId: "",
+      media: [],
       details: "",
       listingType: "physical",
       condition: "new",
       descriptions: [],
     },
   });
+
+  // keep react-hook-form's `media` value in sync with local media state
+  useEffect(() => {
+    try {
+      setValue("media", media || []);
+    } catch (e) {
+      console.warn("Failed to set form media value", e);
+    }
+  }, [media, setValue]);
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -235,69 +266,72 @@ const addproduct = () => {
   };
 
   const onSubmit = async (data: any) => {
+    console.log(data)
     setLoading(true);
-  try {
-    if (data.listingType === "digital" && digitalFiles.length === 0) {
-      setLoading(false);
-      showError("Please upload at least one digital file for digital listings.");
-      return;
-    }
+    try {
+      if (data.listingType === "digital" && digitalFiles.length === 0) {
+        setLoading(false);
+        showError("Please upload at least one digital file for digital listings.");
+        return;
+      }
 
- // from auth store
-    const formData = new FormData();
+      // from auth store
+      const formData = new FormData();
 
-    formData.append("title", data.listName);
-    formData.append("description", data.details);
-    formData.append("price", data.price.toString());
-    formData.append("stock", data.quantity.toString());
-    formData.append("categoryId", data.category);
-    formData.append("isDigital", data.listingType === "digital" ? "true" : "");
-    formData.append("condition", data.condition);
-    formData.append("extraDetails", JSON.stringify(data.descriptions));
+      formData.append("title", data.listName);
+      formData.append("description", data.details);
+      formData.append("price", data.price.toString());
+      formData.append("stock", data.quantity.toString());
+      formData.append("categoryId", data.categoryId);
+      formData.append("subCategoryId", data.subcategoryId);
+      formData.append("isDigital", data.listingType === "digital" ? "true" : "");
+      formData.append("condition", data.condition);
+      formData.append("extraDetails", JSON.stringify(data.descriptions));
 
-    // Attach media (images/videos)
-    for (const file of media) {
-      const fileName = file.uri.split("/").pop();
-      const mimeType = mime.getType(file.uri) || "image/jpeg";
-      formData.append("media", {
-        uri: file.uri,
-        name: fileName,
-        type: mimeType,
-      } as any);
-    }
+      console.log("FormData created:", formData);
 
-    // Attach digital files
-    for (const file of digitalFiles) {
-      const fileName = file.name || file.uri.split("/").pop();
-      const mimeType = file.mimeType || mime.getType(file.uri) || "application/octet-stream";
-      formData.append("digitalFiles", {
-        uri: file.uri,
-        name: fileName,
-        type: mimeType,
-      } as any);
-    }
-    console.log(formData)
+      // Attach media (images/videos)
+      for (const file of media) {
+        const fileName = file.uri.split("/").pop();
+        const mimeType = mime.getType(file.uri) || "image/jpeg";
+        formData.append("media", {
+          uri: file.uri,
+          name: fileName,
+          type: mimeType,
+        } as any);
+      }
 
-    createListing( formData, tokens).then((response) => {
+      // Attach digital files
+      for (const file of digitalFiles) {
+        const fileName = file.name || file.uri.split("/").pop();
+        const mimeType = file.mimeType || mime.getType(file.uri) || "application/octet-stream";
+        formData.append("digitalFiles", {
+          uri: file.uri,
+          name: fileName,
+          type: mimeType,
+        } as any);
+      }
+
+      console.log("Files attached to FormData");
+
+      const response = await createListing(formData, tokens);
+      console.log("Listing created:", response.data);
+      
       showSuccess("Listing created successfully!");
-
-      mutate("/listings/vendor")
-      router.replace("/(tabs)/(listings)/listings")
-      console.log(response.data)
-    }).catch((error) => {
-      showError(error.response?.data?.message || "Failed to upload listing");
-    }).finally(() => {
-      // always stop loading, reset the form and clear any selected files
-      setLoading(false);
+      mutate("/listings/vendor");
       reset();
       setMedia([]);
       setDigitalFiles([]);
       setDigitalFile(null);
-    })
-  } catch (error: any) {
-    showError("An unexpected error occurred. Please try again.");
-  }
-};
+      router.replace("/(tabs)/(listings)/listings");
+    } catch (error: any) {
+      console.error("Submission error:", error);
+      const errorMessage = error?.message || error?.response?.data?.message || "Failed to upload listing";
+      showError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
 
@@ -331,7 +365,7 @@ const addproduct = () => {
       />
       {errors.listName && (
         <Text className="text-red-500 font-NunitoLight text-sm">
-          {errors.listName.message}
+          {(errors.listName as any)?.message}
         </Text>
       )}
       <Text className="font-RalewaySemiBold text-lg mt-4">Listing Type</Text>
@@ -360,7 +394,7 @@ const addproduct = () => {
       />
       {errors.listingType && (
         <Text className="text-red-500 font-NunitoLight text-sm">
-          {errors.listingType.message}
+          {(errors.listingType as any)?.message}
         </Text>
       )}
 
@@ -391,14 +425,14 @@ const addproduct = () => {
       />
       {errors.condition && (
         <Text className="text-red-500 font-NunitoLight text-sm">
-          {errors.condition.message}
+          {(errors.condition as any)?.message}
         </Text>
       )}
 
       {listingType === "physical" && (
         <>
           <Text className="font-RalewayMedium uppercase text-lg mt-4 mb-2">
-            Upload Photo/Video
+            Upload Photo/Video <Text className="text-red-500">*</Text>
           </Text>
           <View className="flex-row flex-wrap gap-3">
             {media.map((item, index) => (
@@ -407,6 +441,7 @@ const addproduct = () => {
                   source={{ uri: item.uri }}
                   className="w-20 h-20 rounded-lg"
                   contentFit="cover"
+                  style={{ borderRadius: 12, width: 80, height: 80 }}
                 />
                 <TouchableOpacity
                   onPress={() => removeMedia(index)}
@@ -425,6 +460,9 @@ const addproduct = () => {
               </Text>
             </TouchableOpacity>
           </View>
+          {media.length === 0 && (
+            <Text className="text-red-500 font-NunitoLight text-sm mt-2">At least one image is required</Text>
+          )}
         </>
       )}
 
@@ -465,7 +503,7 @@ const addproduct = () => {
           )}
 
           {/* Preview images for digital product */}
-          <Text className="font-RalewaySemiBold text-lg mt-4">Preview Images</Text>
+          <Text className="font-RalewaySemiBold text-lg mt-4">Preview Images <Text className="text-red-500">*</Text></Text>
           <Text className="text-sm text-gray-500 font-NunitoLight mb-2">Upload images that will serve as previews/thumbnails for your digital product.</Text>
 
           <View className="flex-row flex-wrap gap-3">
@@ -475,6 +513,7 @@ const addproduct = () => {
                   source={{ uri: item.uri }}
                   className="w-20 h-20 rounded-lg"
                   contentFit="cover"
+                  style={{ borderRadius: 12, width: 80, height: 80 }}
                 />
                 <TouchableOpacity
                   onPress={() => removeMedia(index)}
@@ -492,6 +531,9 @@ const addproduct = () => {
               <Text className="text-gray-400 font-NunitoMedium text-lg">Add</Text>
             </TouchableOpacity>
           </View>
+          {media.length === 0 && (
+            <Text className="text-red-500 font-NunitoLight text-sm mt-2">At least one preview image is required</Text>
+          )}
         </View>
       )}
 
@@ -514,7 +556,7 @@ const addproduct = () => {
       </View>
       {errors.price && (
         <Text className="text-red-500 font-NunitoLight text-sm">
-          {errors.price.message}
+          {(errors.price as any)?.message}
         </Text>
       )}
 
@@ -535,27 +577,25 @@ const addproduct = () => {
       />
       {errors.quantity && (
         <Text className="text-red-500 font-NunitoLight text-sm">
-          {errors.quantity.message}
+          {(errors.quantity as any)?.message}
         </Text>
       )}
 
-      {/* Category */}
+      {/* Category and Subcategory */}
       <Text className="font-RalewaySemiBold text-lg mt-4">Category</Text>
       <Controller
         control={control}
-        name="category"
+        name="categoryId"
         render={({ field: { onChange, value } }) => (
           <>
-            {/* Show selected label or placeholder */}
             <TouchableOpacity
-              onPress={() => setCategoryOpen((s) => !s)}
+              onPress={() => {
+                setCategoryOpen((s) => !s);
+              }}
               className="border font-NunitoMedium text-lg border-gray-300 rounded-xl px-4 py-3 mt-2 flex-row justify-between items-center"
             >
               <Text className={`font-NunitoLight ${value ? 'text-gray-900' : 'text-gray-400'}`}>
-                {(() => {
-                  const selected = categories.categories?.find((c: any) => (c._id === value || c.id === value || String(c._id) === String(value) || String(c.id) === String(value)));
-                  return selected?.name || selected?.categoryName || selected?.title || selected?.label || (value ? String(value) : 'Select category');
-                })()}
+                {selectedCategory?.name || 'Select category'}
               </Text>
               <Ionicons name={categoryOpen ? 'chevron-up' : 'chevron-down'} size={20} color="#444" />
             </TouchableOpacity>
@@ -566,30 +606,27 @@ const addproduct = () => {
                   <View className="p-3">
                     <Text className="text-gray-500 font-NunitoRegular">Loading categories...</Text>
                   </View>
-                  ) : (
-                    <ScrollView
-                      nestedScrollEnabled={true}
-                      showsVerticalScrollIndicator={true}
-                      keyboardShouldPersistTaps="handled"
-                      style={{ maxHeight: 200 }}
-                    >
+                ) : (
+                  <ScrollView
+                    nestedScrollEnabled={true}
+                    showsVerticalScrollIndicator={true}
+                    keyboardShouldPersistTaps="handled"
+                    style={{ maxHeight: 200 }}
+                  >
                     {Array.isArray(categories.categories) && categories.categories.length > 0 ? (
-                      categories.categories?.map((cat: any) => {
-                        const id = cat._id || cat.id || cat.uid || String(cat)
-                        const name = cat.name || cat.categoryName || cat.title || String(cat)
-                        return (
-                          <TouchableOpacity
-                            key={id}
-                            onPress={() => {
-                              onChange(String(id))
-                              setCategoryOpen(false)
-                            }}
-                            className="px-4 py-3 border-b border-gray-100"
-                          >
-                            <Text className="text-base font-NunitoLight">{name}</Text>
-                          </TouchableOpacity>
-                        )
-                      })
+                      categories.categories?.map((cat: any) => (
+                        <TouchableOpacity
+                          key={cat.id}
+                          onPress={() => {
+                            setSelectedCategory(cat);
+                            onChange(String(cat.id));
+                            setCategoryOpen(false);
+                          }}
+                          className="px-4 py-3 border-b border-gray-100"
+                        >
+                          <Text className="text-base font-NunitoLight">{cat.name}</Text>
+                        </TouchableOpacity>
+                      ))
                     ) : (
                       <View className="p-3">
                         <Text className="text-gray-500 font-NunitoRegular">No categories available</Text>
@@ -602,10 +639,68 @@ const addproduct = () => {
           </>
         )}
       />
-      {errors.category && (
+      {errors.categoryId && (
         <Text className="text-red-500 font-NunitoLight text-sm">
-          {errors.category.message}
+          {(errors.categoryId as any)?.message}
         </Text>
+      )}
+
+      {/* Subcategory */}
+      {selectedCategory?.subCategories && selectedCategory.subCategories.length > 0 && (
+        <>
+          <Text className="font-RalewaySemiBold text-lg mt-4">Subcategory</Text>
+          <Controller
+            control={control}
+            name="subcategoryId"
+            render={({ field: { onChange, value } }) => (
+              <>
+                <TouchableOpacity
+                  onPress={() => setSubcategoryOpen((s) => !s)}
+                  className="border font-NunitoMedium text-lg border-gray-300 rounded-xl px-4 py-3 mt-2 flex-row justify-between items-center"
+                >
+                  <Text className={`font-NunitoLight ${value ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {(() => {
+                      const selected = selectedCategory.subCategories.find(
+                        (sc: any) => sc.id === value || String(sc.id) === String(value)
+                      );
+                      return selected?.name || 'Select subcategory';
+                    })()}
+                  </Text>
+                  <Ionicons name={subcategoryOpen ? 'chevron-up' : 'chevron-down'} size={20} color="#444" />
+                </TouchableOpacity>
+
+                {subcategoryOpen && (
+                  <View className="border border-gray-200 rounded-lg mt-2 max-h-48">
+                    <ScrollView
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={true}
+                      keyboardShouldPersistTaps="handled"
+                      style={{ maxHeight: 200 }}
+                    >
+                      {selectedCategory.subCategories?.map((sub: any) => (
+                        <TouchableOpacity
+                          key={sub.id}
+                          onPress={() => {
+                            onChange(String(sub.id));
+                            setSubcategoryOpen(false);
+                          }}
+                          className="px-4 py-3 border-b border-gray-100"
+                        >
+                          <Text className="text-base font-NunitoLight">{sub.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </>
+            )}
+          />
+          {errors.subcategoryId && (
+            <Text className="text-red-500 font-NunitoLight text-sm">
+              {(errors.subcategoryId as any)?.message}
+            </Text>
+          )}
+        </>
       )}
 
       {/* Add Other Descriptions */}
@@ -682,14 +777,28 @@ const addproduct = () => {
       />
       {errors.details && (
         <Text className="text-red-500 font-NunitoRegular text-sm">
-          {errors.details.message}
+          {(errors.details as any)?.message}
         </Text>
       )}
 
       
 
       {/* Submit */}
-        <CustomButton handlePress1={handleSubmit(onSubmit)} isLoading={loading} title="SAVE CHANGES" containerStyles="mt-8 mb-72" />
+        <CustomButton
+          handlePress1={() =>
+            handleSubmit(
+              onSubmit,
+              (errs) => {
+                console.log("Validation errors:", errs);
+                const firstMsg = String(Object.values(errs)[0]?.message || "Please complete all required fields.");
+                showError(firstMsg);
+              }
+            )()
+          }
+          isLoading={loading}
+          title="SAVE CHANGES"
+          containerStyles="mt-8 mb-72"
+        />
         
     </ScrollView>
   );

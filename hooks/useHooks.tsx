@@ -1,4 +1,4 @@
-import { getAllMessages, getCategory, getConversions, getDashboardStats, getListings, getOrders, getVendor } from "api/api"
+import { getAllMessages, getBanks, getCategory, getConversions, getDashboardStats, getListings, getOrders, getVendor, getVendorBankDetails, getVendorWallet } from "api/api"
 import useSWR  from "swr"
 import { SWRConfiguration } from "swr"
 
@@ -160,4 +160,55 @@ export const useGetConversions = (id:string, token:string)=>{
         mutate,
     };
 
+}
+
+export const useGetBanks = (token:string)=>{
+    const fetcher = (token:string) => getBanks(token);
+    const { data, error, isLoading ,mutate} = useSWR(
+    token ? `/vendor/get-bank` : null,
+    ()=>fetcher(token),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,}
+  );
+    return {
+        banks: data?.data || [],
+        isLoading,
+        isError: error,
+        mutate,
+    };
+}
+
+export const useGetVendorWallet = (token:string)=>{
+    const fetcher = (token:string) => getVendorWallet(token);
+    const { data, error, isLoading ,mutate} = useSWR(
+    token ? `/vendor/get-wallet` : null,
+    ()=>fetcher(token),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,}
+  );
+    return {
+        wallet: data?.data || [],
+        isLoading,
+        isError: error,
+        mutate,
+    };
+}
+
+export const useGetVendorBankDetails = (token:string)=>{
+    const fetcher = (token:string) => getVendorBankDetails(token);
+    const { data, error, isLoading ,mutate} = useSWR(
+    token ? `/vendor/get-vendor-bank-details` : null,
+    ()=>fetcher(token),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,}
+  );
+    return {
+        bankDetails: data?.data || [],
+        isLoading,
+        isError: error,
+        mutate,
+    };
 }

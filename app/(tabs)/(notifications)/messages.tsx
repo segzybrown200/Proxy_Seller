@@ -9,7 +9,6 @@ import {
   FlatList,
   TextInput,
   TouchableOpacity,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Alert,
@@ -17,6 +16,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -112,7 +112,7 @@ const Chat = () => {
   
   const receiverId = users?.id;
 
-  console.log(JSON.stringify(users.Session,null,2))
+
 
   // Get user from Redux
   const user = useSelector(selectUser) as any;
@@ -513,7 +513,8 @@ const Chat = () => {
             <TouchableOpacity onPress={() => setSelectedImage(item?.mediaUrl)}>
             <Image
               source={{ uri: item.mediaUrl }}
-              className="w-48 h-36 rounded-lg"
+              contentFit="cover"
+              style={{ width: 192, height: 144, borderRadius: 12 }}
             />
             </TouchableOpacity>
           )}
@@ -610,8 +611,8 @@ const Chat = () => {
           </TouchableOpacity>
           <Image 
             source={{ uri: selectedImage }} 
-            className="w-full h-[80%]" 
-            resizeMode="contain"
+            contentFit="contain"
+            style={{ width: '100%', height: '100%' }}
           />
         </View>
       )}
@@ -630,6 +631,8 @@ const Chat = () => {
           <Image
             source={require("../../../assets/images/artist-2 2.png")}
             className="w-10 h-10 rounded-full mr-3"
+            contentFit="cover"
+            style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12 }}
           />
           <View>
             <Text className="font-RalewayBold text-xl text-black">

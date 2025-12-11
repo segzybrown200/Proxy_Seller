@@ -58,7 +58,6 @@ const RootLayoutInner = () => {
 
       // try {
         const res = await getUserAuth(isLoggedIn?.token || "").then((res) => {
-          console.log(res?.data)
           
         }).catch((err) => {
           console.error("error",err)

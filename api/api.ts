@@ -199,3 +199,59 @@ export const updateVendor = async(data: {name?: string, email?: string, phone?: 
     throw error.response?.data || error;
   });
 }
+export const getBanks = async(token:string) => {
+  return api.get("/vendor/get-bank",
+     {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }
+  ).catch((error) => {
+    throw error.response?.data || error;
+  })
+}
+
+export const updateVendorBankDetails = async(data: {bankName: string, accountNumber: string, accountName: string, bankCode: string}, token: string) => {
+  return api.post("/vendor/update-bank", data, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).catch((error) => {
+    throw error.response?.data || error;
+  });
+}
+
+export const verifyBankAccount = async(data: {accountNumber: string, bankCode: string}, token: string) => {
+  return api.post("/vendor/resolve-account", data).catch((error) => {
+    throw error.response?.data || error;
+  });
+}
+
+export const setupPayout = async(data: {amount: number}, token: string) => {
+  return api.post("/vendor/update-bank", data, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).catch((error) => {
+    throw error.response?.data || error;
+  });
+}
+export const getVendorWallet = async(token:string) => {
+  return api.get("/vendor/get-wallet", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).catch((error) => {
+    throw error.response?.data || error;
+  });
+}
+
+export const getVendorBankDetails = async(token:string) => {
+  return api.get("/vendor/get-vendor-bank-details", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).catch((error) => {
+    throw error.response?.data || error;
+  });
+}

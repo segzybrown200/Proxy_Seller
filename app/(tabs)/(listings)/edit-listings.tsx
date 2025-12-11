@@ -35,6 +35,7 @@ const schema = Yup.object().shape({
     .typeError("Enter a valid quantity")
     .required("Quantity is required"),
   categoryId: Yup.string().required("Category is required"),
+  subcategoryId: Yup.string().required("Subcategory is required"),
   listingType: Yup.string()
     .oneOf(["physical", "digital"])
     .required("Listing type is required"),
@@ -57,8 +58,10 @@ export default function EditListingScreen() {
   const [digitalFiles, setDigitalFiles] = useState<
     { uri: string; name?: string; size?: number; mimeType?: string }[]
   >([]);
-  const { categories, isError, isLoading } = useCategory();
+  const { categories, isError, isLoading }:any = useCategory();
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const [subcategoryOpen, setSubcategoryOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const user: any = useSelector(selectUser);
   const token = user?.token || '';
   const [loading, setLoading] = useState(false);
@@ -78,6 +81,7 @@ export default function EditListingScreen() {
       price: 0,
       stock: 0,
       categoryId: "",
+      subcategoryId: "",
       description: "",
       listingType: "physical",
       condition: "new",
@@ -185,6 +189,7 @@ export default function EditListingScreen() {
       formData.append("priceCents", (data.price * 100).toString());
       formData.append("stock", data.stock.toString());
       formData.append("categoryId", data.categoryId);
+      formData.append("subCategoryId", data.subcategoryId);
       formData.append("condition", data.condition);
       formData.append("isDigital", data.listingType === "digital" ? "true" : "");
       formData.append("replaceMedia", replaceMedia.toString());
@@ -305,12 +310,7 @@ export default function EditListingScreen() {
                 className="bg-[#F1F5F9] rounded-xl p-4 mb-2 flex-row justify-between items-center"
               >
                 <Text className="font-NunitoRegular">
-                  {(() => {
-                    // support multiple shapes returned from useCategory
-                    const list = Array.isArray(categories) ? categories : (categories && (categories.categories || categories.data)) || [];
-                    const selected = list.find((c: any) => (c.id === value || c._id === value || String(c.id) === String(value) || String(c._id) === String(value)));
-                    return selected?.name || selected?.categoryName || selected?.title || (value ? String(value) : 'Select Category');
-                  })()}
+                  {selectedCategory?.name || 'Select Category'}
                 </Text>
                 <Ionicons name={categoryOpen ? 'chevron-up' : 'chevron-down'} size={20} color="#444" />
               </TouchableOpacity>
@@ -331,19 +331,19 @@ export default function EditListingScreen() {
                       {(() => {
                         const list = Array.isArray(categories) ? categories : (categories && (categories.categories || categories.data)) || [];
                         return list.length > 0 ? (
-                          list.map((cat: any) => {
-                            const id = cat._id || cat.id || String(cat);
-                            const name = cat.name || cat.categoryName || cat.title || String(cat);
-                            return (
-                              <TouchableOpacity
-                                key={id}
-                                onPress={() => { onChange(String(id)); setCategoryOpen(false); }}
-                                className="px-4 py-3 border-b border-gray-100"
-                              >
-                                <Text className="text-base font-NunitoLight">{name}</Text>
-                              </TouchableOpacity>
-                            );
-                          })
+                          list.map((cat: any) => (
+                            <TouchableOpacity
+                              key={cat.id}
+                              onPress={() => {
+                                setSelectedCategory(cat);
+                                onChange(String(cat.id));
+                                setCategoryOpen(false);
+                              }}
+                              className="px-4 py-3 border-b border-gray-100"
+                            >
+                              <Text className="text-base font-NunitoLight">{cat.name}</Text>
+                            </TouchableOpacity>
+                          ))
                         ) : (
                           <View className="p-3">
                             <Text className="text-gray-500 font-NunitoRegular">No categories available</Text>
@@ -359,6 +359,62 @@ export default function EditListingScreen() {
         />
         {errors.categoryId && (
           <Text className="text-red-500 mb-2">{errors.categoryId.message}</Text>
+        )}
+
+        {/* Subcategory */}
+        {selectedCategory?.subCategories && selectedCategory.subCategories.length > 0 && (
+          <>
+            <Text className="text-sm text-gray-600 font-NunitoSemiBold mb-1">SUBCATEGORY</Text>
+            <Controller
+              control={control}
+              name="subcategoryId"
+              render={({ field: { onChange, value } }) => (
+                <>
+                  <TouchableOpacity
+                    onPress={() => setSubcategoryOpen((s) => !s)}
+                    className="bg-[#F1F5F9] rounded-xl p-4 mb-2 flex-row justify-between items-center"
+                  >
+                    <Text className="font-NunitoRegular">
+                      {(() => {
+                        const selected = selectedCategory.subCategories.find(
+                          (sc: any) => sc.id === value || String(sc.id) === String(value)
+                        );
+                        return selected?.name || 'Select Subcategory';
+                      })()}
+                    </Text>
+                    <Ionicons name={subcategoryOpen ? 'chevron-up' : 'chevron-down'} size={20} color="#444" />
+                  </TouchableOpacity>
+
+                  {subcategoryOpen && (
+                    <View className="border border-gray-200 rounded-lg mt-2 max-h-48">
+                      <ScrollView
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                        keyboardShouldPersistTaps="handled"
+                        style={{ maxHeight: 200 }}
+                      >
+                        {selectedCategory.subCategories?.map((sub: any) => (
+                          <TouchableOpacity
+                            key={sub.id}
+                            onPress={() => {
+                              onChange(String(sub.id));
+                              setSubcategoryOpen(false);
+                            }}
+                            className="px-4 py-3 border-b border-gray-100"
+                          >
+                            <Text className="text-base font-NunitoLight">{sub.name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </>
+              )}
+            />
+            {errors.subcategoryId && (
+              <Text className="text-red-500 mb-2">{errors.subcategoryId.message}</Text>
+            )}
+          </>
         )}
 
         <Text className="text-sm text-gray-600 font-NunitoSemiBold mb-1">CONDITION</Text>

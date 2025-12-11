@@ -8,18 +8,19 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
-import { logoutState, selectIsVisitor, selectUser, VisitorState } from "global/authSlice";
+import { logoutState, selectIsVisitor, selectUser } from "global/authSlice";
 import Withdrawal from "../../../assets/icons/withdrawal.svg";
 import { useDispatch, useSelector } from "react-redux";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useDashboardStats } from "hooks/useHooks";
+import { useGetVendorWallet } from "hooks/useHooks";
 
 export default function ProfileScreen() {
   const dispatch = useDispatch();
+  const router = useRouter();
   const select = useSelector(selectIsVisitor);
     const user: any = useSelector(selectUser);
     const token = user?.token || "";
@@ -36,12 +37,12 @@ export default function ProfileScreen() {
       color: "#0056FF",
       route: "editLocation",
     },
-    // {
-    //   title: "Withdrawal History",
-    //   icon: <Withdrawal width={24} height={24} color="#FF8C00" />,
-    //   color: "#8B5CF6",
-    //   route: "withdraw",
-    // },
+    {
+      title: "Wallet",
+      icon: <Withdrawal width={24} height={24} color="#FF8C00" />,
+      color: "#8B5CF6",
+      route: "wallet",
+    },
   ];
 
   const accountItems = [
@@ -60,18 +61,14 @@ export default function ProfileScreen() {
   ];
     const {
       isLoading,
-      dashboard,
+      wallet,
       isError,
-    } = useDashboardStats(token);
+    } = useGetVendorWallet(token);
+
+
   
-    const stats = dashboard?.data || {
-      runningOrders: 0,
-      orderRequests: 0,
-      totalRevenue: 0,
-      todayRevenue: 0,
-      todayNewOrders: 0,
-      monthlyRevenue: { labels: [], values: [] },
-      popularListings: [],
+    const stats = wallet?.data || {
+      balance: 0,
     };
 
   return (
@@ -86,10 +83,10 @@ export default function ProfileScreen() {
             </View>
             <View className="flex flex-col items-center mt-5">
               <Text className="text-xl font-RalewayRegular text-white ">Available Balance</Text>
-              <Text className="text-5xl mt-2 font-NunitoBold text-white ">  ₦{stats.totalRevenue.toLocaleString()}</Text>
-              {/* <TouchableOpacity className="mt-4 bg-transparent px-6 p-2 rounded-lg border-2 border-white">
+              <Text className="text-5xl mt-2 font-NunitoBold text-white ">  ₦{stats?.balance?.toLocaleString()}</Text>
+              <TouchableOpacity className="mt-4 bg-transparent px-6 p-2 rounded-lg border-2 border-white" onPress={()=>router.push("/(tabs)/(profile)/withdraw") }>
                 <Text className="text-white font-NunitoMedium">Withdraw</Text>
-                </TouchableOpacity> */}
+                </TouchableOpacity>
             </View>
             </View>
 

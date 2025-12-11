@@ -14,6 +14,7 @@ const _layout = () => {
         <Stack.Screen name="chat" options={{ headerShown: false }} />
         <Stack.Screen name="reviews" options={{ headerShown: false }} />
         <Stack.Screen name="editLocation" options={{ headerShown: false }} />
+        <Stack.Screen name="wallet" options={{ headerShown: false }} />
     </Stack>
   )
 }

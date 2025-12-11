@@ -8,9 +8,9 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
-  Image,
   ActivityIndicator,
 } from "react-native";
+import { Image } from "expo-image";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useSelector } from "react-redux";
 
@@ -19,18 +19,17 @@ const OrderScreen = () => {
   const user: any = useSelector(selectUser);
   const token = user?.token || "";
 
-  const { isLoading, orders:data, isError } = useOrders(token);
-
+  const { isLoading, orders: data, isError } = useOrders(token);
 
   const orders = useMemo(() => data?.data ?? [], [data]);
-
+  console.log(orders[1])
 
   const renderItem = ({ item }: any) => (
     <TouchableOpacity
       onPress={() =>
         router.push({
           pathname: "/(tabs)/(profile)/track-order",
-          params: { order: JSON.stringify(item, null,2) },
+          params: { order: JSON.stringify(item, null, 2) },
         })
       }
       activeOpacity={0.8}
@@ -39,34 +38,43 @@ const OrderScreen = () => {
       <View className="flex-row w-[60%] items-center">
         <Image
           source={{
-            uri:
-              item.listings[0]?.image ||
-              "https://via.placeholder.com/100",
+            uri: item.listings[0]?.image || "https://via.placeholder.com/150",
           }}
-          className="w-16 h-16 rounded-md mr-3"
+          // className="w-16 h-16 rounded-md mr-3"
+          contentFit="cover"
+          style={{ width: 50, height: 50, borderRadius: 8, marginRight: 12 }}
         />
         <View>
           <Text className="text-lg font-RalewaySemiBold text-black">
             {item.listings[0]?.title || "Untitled"}
           </Text>
-          <Text numberOfLines={2} className="text-base  font-NunitoLight text-primary-100 mt-1">
+          <Text
+            numberOfLines={2}
+            className="text-base w-[60%] font-NunitoLight text-primary-100 mt-1"
+          >
             {item.delivery?.dropoffAddress || "No address"}
           </Text>
         </View>
       </View>
 
       <View className="items-end">
-        <Text className="text-xs font-NunitoRegular text-gray-400">
+        <Text className="text-xs font-NunitoBold text-gray-400">
           {new Date(item.createdAt).toLocaleDateString()}
         </Text>
         <Text
-          className={`text-base mt-1 font-NunitoMedium ${
-            item.status === "DELIVERED"
+          className={`text-base mt-1 font-NunitoBold ${
+            item?.delivery?.status === "PENDING"
+              ? "text-yellow-500"
+              : item?.delivery?.status === "PICKED_UP"
+              ? "text-purple-500"
+              : item?.delivery?.status === "IN_TRANSIT"
+              ? "text-blue-500"
+              : item?.delivery?.status === "DELIVERED"
               ? "text-green-500"
-              : "text-primary-100"
+              : "text-red-500"
           }`}
         >
-          {item.status}
+          {item?.delivery?.status}
         </Text>
       </View>
     </TouchableOpacity>
@@ -122,7 +130,6 @@ const OrderScreen = () => {
           {/* <Image
             source={require("../../../assets/images/empty-box.png")}
             className="w-32 h-32 mb-3"
-            resizeMode="contain"
           /> */}
           <Text className="text-gray-500 font-NunitoMedium text-lg">
             No orders found

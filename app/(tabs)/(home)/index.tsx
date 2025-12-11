@@ -9,11 +9,11 @@ import {
   ActivityIndicator,
   Dimensions,
 } from "react-native";
-import { Image } from 'expo-image';
+import { Image } from "expo-image";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { LineChart } from "react-native-chart-kit";
 import { useDashboardStats, useVendors } from "hooks/useHooks";
-import * as Location from 'expo-location';
+import * as Location from "expo-location";
 import { vendorAddress } from "api/api";
 import { useSelector } from "react-redux";
 import { selectUser } from "global/authSlice";
@@ -31,11 +31,8 @@ const SellerDashboard = () => {
     isError: userIsError,
     mutate: mutateVendor,
   } = useVendors(vendorId, token);
-  const {
-    isLoading,
-    dashboard,
-    isError,
-  } = useDashboardStats(token);
+  const { isLoading, dashboard, isError } = useDashboardStats(token);
+
 
   const stats = dashboard?.data || {
     runningOrders: 0,
@@ -54,14 +51,14 @@ const SellerDashboard = () => {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      if (typeof mutateVendor === 'function') {
+      if (typeof mutateVendor === "function") {
         await mutateVendor();
       } else {
         // fallback short delay
         await new Promise((r) => setTimeout(r, 800));
       }
     } catch (e) {
-      console.warn('Refresh failed', e);
+      console.warn("Refresh failed", e);
     } finally {
       setRefreshing(false);
     }
@@ -69,11 +66,19 @@ const SellerDashboard = () => {
 
   // Use refs to track last known location and last update timestamp so we don't
   // retrigger hooks or re-subscribe the watcher when these values change.
-  const lastLocationRef = React.useRef<null | { latitude: number; longitude: number }>(null);
+  const lastLocationRef = React.useRef<null | {
+    latitude: number;
+    longitude: number;
+  }>(null);
   const lastUpdateRef = React.useRef<number>(0);
 
   // Haversine distance in meters
-  const distanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const distanceMeters = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) => {
     const toRad = (v: number) => (v * Math.PI) / 180;
     const R = 6371e3; // metres
     const φ1 = toRad(lat1);
@@ -81,9 +86,9 @@ const SellerDashboard = () => {
     const Δφ = toRad(lat2 - lat1);
     const Δλ = toRad(lon2 - lon1);
 
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) *
-      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c;
@@ -95,8 +100,8 @@ const SellerDashboard = () => {
     const startWatching = async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          console.warn('Location permission not granted');
+        if (status !== "granted") {
+          console.warn("Location permission not granted");
           return;
         }
 
@@ -105,7 +110,10 @@ const SellerDashboard = () => {
         const prevLat = profile?.data?.location?.lat;
         const prevLng = profile?.data?.location?.lng;
         if (prevLat != null && prevLng != null && !lastLocationRef.current) {
-          lastLocationRef.current = { latitude: Number(prevLat), longitude: Number(prevLng) };
+          lastLocationRef.current = {
+            latitude: Number(prevLat),
+            longitude: Number(prevLng),
+          };
         }
 
         // Start watcher once. Use balanced accuracy and larger intervals to
@@ -121,43 +129,72 @@ const SellerDashboard = () => {
             try {
               const { latitude, longitude } = loc.coords;
 
-              const prev = lastLocationRef.current || (profile?.data?.location ? { latitude: Number(profile.data.location.lat), longitude: Number(profile.data.location.lng) } : null);
+              const prev =
+                lastLocationRef.current ||
+                (profile?.data?.location
+                  ? {
+                      latitude: Number(profile.data.location.lat),
+                      longitude: Number(profile.data.location.lng),
+                    }
+                  : null);
               if (!prev) {
                 // No previous location recorded, set and skip update
                 lastLocationRef.current = { latitude, longitude };
                 return;
               }
 
-              const meters = distanceMeters(prev.latitude, prev.longitude, latitude, longitude);
+              const meters = distanceMeters(
+                prev.latitude,
+                prev.longitude,
+                latitude,
+                longitude
+              );
 
               // cooldown: avoid updating backend too frequently (e.g., once every 5 minutes)
               const now = Date.now();
               const cooldown = 1 * 60 * 1000; // 1 minute for testing
               const distanceThreshold = 50; // 50 meters for testing (was 100)
-              
-              if (meters >= distanceThreshold && (now - lastUpdateRef.current > cooldown)) {
-                console.log(`✅ Vendor moved ${Math.round(meters)}m, updating location`);
 
-                let address = '';
-                let city = '';
-                let country = '';
+              if (
+                meters >= distanceThreshold &&
+                now - lastUpdateRef.current > cooldown
+              ) {
+                console.log(
+                  `✅ Vendor moved ${Math.round(meters)}m, updating location`
+                );
+
+                let address = "";
+                let city = "";
+                let country = "";
 
                 try {
                   // attempt reverse geocoding to get a fresh human-readable address
-                  const rev = await Location.reverseGeocodeAsync({ latitude, longitude });
-                  console.log('Reverse geocode result:', rev);
-                  
+                  const rev = await Location.reverseGeocodeAsync({
+                    latitude,
+                    longitude,
+                  });
+                  console.log("Reverse geocode result:", rev);
+
                   if (rev && rev.length > 0) {
                     const r = rev[0];
                     // Build a complete address from reverse geocode
-                    address = [r.name, r.street, r.city, r.region, r.postalCode, r.country].filter(Boolean).join(', ');
-                    city = r.city || '';
-                    country = r.country || '';
-                    console.log('New address from geocode:', address);
+                    address = [
+                      r.name,
+                      r.street,
+                      r.city,
+                      r.region,
+                      r.postalCode,
+                      r.country,
+                    ]
+                      .filter(Boolean)
+                      .join(", ");
+                    city = r.city || "";
+                    country = r.country || "";
+                    console.log("New address from geocode:", address);
                   }
                 } catch (e) {
                   // non-fatal: if geocode fails, use lat/lng as address
-                  console.warn('reverse geocode failed', e);
+                  console.warn("reverse geocode failed", e);
                   address = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
                 }
 
@@ -175,25 +212,29 @@ const SellerDashboard = () => {
                   userId: vendorId,
                 };
 
-                console.log('Sending payload:', payload);
+                console.log("Sending payload:", payload);
                 try {
                   await vendorAddress(payload);
-                  console.log('Location updated successfully');
+                  console.log("Location updated successfully");
                   // refresh vendor profile so UI reflects new location
-                  try { mutateVendor?.(); } catch (e) { /* ignore */ }
+                  try {
+                    mutateVendor?.();
+                  } catch (e) {
+                    /* ignore */
+                  }
                   lastLocationRef.current = { latitude, longitude };
                   lastUpdateRef.current = Date.now();
                 } catch (err) {
-                  console.warn('Failed to update vendor location', err);
+                  console.warn("Failed to update vendor location", err);
                 }
               }
             } catch (err) {
-              console.warn('Error handling location update', err);
+              console.warn("Error handling location update", err);
             }
           }
         );
       } catch (err) {
-        console.warn('Failed to start location watcher', err);
+        console.warn("Failed to start location watcher", err);
       }
     };
 
@@ -205,7 +246,6 @@ const SellerDashboard = () => {
     // run once on mount; profile may update separately and we set initial ref above
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
 
   if (isLoading || userIsLoading) {
     return (
@@ -232,7 +272,10 @@ const SellerDashboard = () => {
     <SafeAreaView className="flex-1 bg-[#F9FAFB] p-5">
       {/* Header */}
       <View className="flex-row justify-between items-center mt-10">
-        <TouchableOpacity onPress={()=>router.push("/(tabs)/(profile)")} className="bg-white shadow-sm w-[15%] p-4 rounded-full">
+        <TouchableOpacity
+          onPress={() => router.push("/(tabs)/(profile)")}
+          className="bg-white shadow-sm w-[15%] p-4 rounded-full"
+        >
           <FontAwesome6 name="bars" size={22} color="#004CFF" />
         </TouchableOpacity>
 
@@ -252,13 +295,15 @@ const SellerDashboard = () => {
           <Image
             source={{ uri: profile.data.user.kycDocument.selfieUrl }}
             className="w-12 h-12 rounded-full"
-            resizeMode="cover"
+            contentFit="cover"
+            style={{ borderRadius: 9999, width: 40, height: 40 }}
           />
         ) : (
           <Image
             source={require("../../../assets/images/artist-2 2.png")}
             className="w-12 h-12 rounded-full"
-            resizeMode="cover"
+            contentFit="cover"
+            style={{ borderRadius: 9999, width: 40, height: 40 }}
           />
         )}
       </View>
@@ -266,7 +311,9 @@ const SellerDashboard = () => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         className="mt-6"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Stats Row */}
         <View className="flex-row justify-between mb-6">
@@ -366,11 +413,12 @@ const SellerDashboard = () => {
           {stats.popularListings?.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {stats.popularListings.map((item: any) => (
-                <View key={item.id} className="mr-4 w-36 mb-32 items-center">
+                <View key={item.id} className="mr-4 w-36 mb-64 items-center">
                   <Image
                     source={{ uri: item.image }}
-                    className="w-36 h-36 rounded-2xl"
-                    resizeMode="cover"
+                    // className="w-36 h-36 rounded-2xl"
+                    contentFit="cover"
+                    style={{ width: "100%", height:  65, borderRadius: 16 }}
                   />
                   <Text
                     numberOfLines={1}

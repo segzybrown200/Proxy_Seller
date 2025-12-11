@@ -6,15 +6,19 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Image,
+  ScrollView,
+  Linking,
+  Animated,
+
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, Polyline } from "react-native-maps";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import io from "socket.io-client";
 import { useSelector } from "react-redux";
 import { selectUser } from "global/authSlice";
-// import { pushOrderRider } from "api/api";
+// import { pushOrderRider } from "api/api";\
+import { Image } from "expo-image";
 import { showError } from "utils/toast";
 import axios from "axios"
 import { mutate } from "swr";
@@ -32,8 +36,9 @@ const VendorPushToRidersScreen = () => {
   const [isPushing, setIsPushing] = useState(false);
   const [riderAssigned, setRiderAssigned] = useState<any>(null);
   const [isSearching, setIsSearching] = useState(false);
-
-  console.log(parsedOrder)
+  const [currentStatus, setCurrentStatus] = useState(delivery?.status || "PENDING");
+  const [riderLocation, setRiderLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const riderAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
 
   useEffect(() => {
     if (!delivery?.id) return;
@@ -51,6 +56,41 @@ const VendorPushToRidersScreen = () => {
     });
 
     return () => {
+      socket.off("rider_assigned");
+    };
+  }, [delivery]);
+
+   useEffect(() => {
+    if (!delivery?.id) return;
+
+    socket.on("delivery_location_update", (data) => {
+      if (data?.deliveryId === delivery.id) {
+        const newLocation = { latitude: data.lat, longitude: data.lng };
+        console.log(newLocation)
+        setRiderLocation(newLocation);
+        Animated.timing(riderAnim, {
+          toValue: { x: data.lat, y: data.lng },
+          duration: 800,
+          useNativeDriver: false,
+        }).start();
+      }
+    });
+
+    socket.on("delivery_status_update", (data) => {
+      if (data?.deliveryId === delivery.id) {
+        setCurrentStatus(data.status);
+      }
+    });
+
+    // socket.on("rider_assigned", (data) => {
+    //   if (data?.deliveryId === delivery.id) {
+    //     setRiderInfo(data.rider);
+    //   }
+    // });
+
+    return () => {
+      socket.off("delivery_location_update");
+      socket.off("delivery_status_update");
       socket.off("rider_assigned");
     };
   }, [delivery]);
@@ -110,14 +150,25 @@ const VendorPushToRidersScreen = () => {
     //   });
   };
 
+  // Safely parse coordinates with fallback values
+  const parseCoord = (value: any, fallback: number = 0) => {
+    const num = Number(value);
+    return isNaN(num) ? fallback : num;
+  };
+
   const pickup = {
-    latitude: Number(delivery.pickupLat),
-    longitude: Number(delivery.pickupLng),
+    latitude: parseCoord(delivery.pickupLat, 6.5244),
+    longitude: parseCoord(delivery.pickupLng, 3.3792),
   };
   const dropoff = {
-    latitude: Number(delivery.dropoffLat),
-    longitude: Number(delivery.dropoffLng),
+    latitude: parseCoord(delivery.dropoffLat, 6.5244),
+    longitude: parseCoord(delivery.dropoffLng, 3.3792),
   };
+    const riderCords = {
+    latitude: Number(parsedOrder.delivery?.rider?.currentLat) || 0,
+    longitude: Number(parsedOrder.delivery?.rider?.currentLng) || 0,
+  }
+  console.log(delivery);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -134,9 +185,17 @@ const VendorPushToRidersScreen = () => {
 
       {/* Map */}
       <View className="flex-1">
+        {pickup.latitude === 0 || pickup.longitude === 0 ? (
+          <View className="flex-1 justify-center items-center bg-gray-100">
+            <Text className="text-gray-500 font-NunitoMedium">
+              Invalid coordinates. Map cannot be displayed.
+            </Text>
+          </View>
+        ) : (
+          <View className="flex-1">
         <MapView
           ref={mapRef}
-          className="flex-1"
+          style={{ flex: 1 }}
           initialRegion={{
             latitude: pickup.latitude,
             longitude: pickup.longitude,
@@ -146,7 +205,21 @@ const VendorPushToRidersScreen = () => {
         >
           <Marker coordinate={pickup} title="Pickup" pinColor="blue" />
           <Marker coordinate={dropoff} title="Dropoff" pinColor="green" />
+           {riderLocation && (
+            <Marker coordinate={riderLocation } title="Rider" pinColor="red" />
+          )}
+          <Polyline
+            coordinates={[
+              pickup,
+              ...(riderLocation ? [riderLocation] : []),
+              dropoff,
+            ]}
+            strokeColor="#004CFF"
+            strokeWidth={4}
+          />
         </MapView>
+          </View>
+        )}
 
         {/* Order details */}
         <View className="absolute bottom-0 w-full">
@@ -154,16 +227,18 @@ const VendorPushToRidersScreen = () => {
             <Text className="text-lg font-NunitoBold text-black mb-2">
               Order Details
             </Text>
-            <View className="mb-4">
+            <ScrollView horizontal className="mb-4" showsHorizontalScrollIndicator={false}>
            {
               parsedOrder.listings.map((listing:any) => (
-                <View key={listing.id} className="mb-2">
+                <View key={listing.id} className="mb-2 mx-2 items-center">
                   <Image
                     source={{
                       uri: listing.image ||
                         "https://via.placeholder.com/100",
                     }}
                     className="w-16 h-16 rounded-md mr-3 mb-1"
+                    contentFit="cover"
+                    style={{ width: 64, height: 64, borderRadius: 8 }}
                   />
                   <Text className="text-primary-100 font-NunitoMedium">
                     {listing.title} x {listing.quantity}
@@ -171,7 +246,7 @@ const VendorPushToRidersScreen = () => {
                 </View>
               ))
            }
-            </View>
+            </ScrollView>
 
             <Text className="text-gray-800 text-xl font-NunitoBold">
               Total: ₦{parsedOrder?.transaction?.amountPaid.toLocaleString()}
@@ -197,32 +272,49 @@ const VendorPushToRidersScreen = () => {
           </Text>
 
           <View className="mt-5">
-            {riderAssigned ? (
-              <View className="flex-row items-center">
-                <Image
-                  source={{
-                    uri:
-                      riderAssigned.photo ||
-                      "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-                  }}
-                  className="w-12 h-12 rounded-full mr-3"
-                />
-                <View>
-                  <Text className="text-black font-NunitoBold">
-                    {riderAssigned.name}
-                  </Text>
-                  <Text className="text-gray-500 font-NunitoMedium">
-                    {riderAssigned.vehicleType || "Bike"}
-                  </Text>
+            {riderAssigned || parsedOrder?.rider ? (
+               <View className="flex-row items-center mb-6 mt-2">
+              <Image
+                source={{
+                  uri:
+                    parsedOrder?.rider?.kyc?.selfieUrl ||
+                    "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+                }}
+                className="w-12 h-12 rounded-full mr-3"
+                contentFit="cover"
+                style={{ borderRadius: 100, width: 48, height: 48, marginRight: 12 }}
+              />
+              <View className="flex-1">
+                <Text className="font-NunitoBold text-black text-lg">
+                  {parsedOrder?.rider?.name}
+                </Text>
+                <Text className="font-NunitoMedium text-gray-500">
+                  {parsedOrder?.rider?.vehicleType || "Bike"}
+                </Text>
+                <View className="flex flex-row gap-3">
+                   <Text className="font-NunitoMedium text-gray-500">
+                  {parsedOrder?.rider?.vehicle?.model}
+                </Text>
+                   <Text className="font-NunitoMedium text-gray-500">
+                  PlateNumber: {parsedOrder?.rider?.vehicle?.plateNumber}
+                </Text>
                 </View>
+               
               </View>
+              <TouchableOpacity
+                onPress={() => Linking.openURL(`tel:${parsedOrder.rider?.phone}`)}
+                className="bg-primary-100 px-3 py-3 rounded-full"
+              >
+                <Ionicons name="call-outline" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
             ) : parsedOrder.delivery.status === "SEARCH_OF_RIDER" ? 
             <View>
               <Text className="text-primary-100 font-NunitoMedium">
                 Order is currently being searched by riders so hold on so a rider can accept...
               </Text>
             </View>
-            : (
+            :  (
               <TouchableOpacity
                 disabled={isPushing || isSearching}
                 onPress={handlePushToRiders}

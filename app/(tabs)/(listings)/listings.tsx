@@ -20,6 +20,9 @@ const listings = () => {
     const token = user?.token || ''
   const { listings, isLoading, isError, mutate } = useListings(token)
 
+  // console.log(listings?.data[0])
+
+
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -55,6 +58,7 @@ const listings = () => {
         media: item.media,
         extraDetails: item.extraDetails,
         category: item.category,
+        sub: item.subCategory,
         status: item.status === "PENDING" ? "PENDING" : item.status === "APPROVED" ? "APPROVED" : item.status,
         image: item.media && item.media.length > 0 
           ? { uri: item.media[0].url } 
@@ -74,6 +78,7 @@ const listings = () => {
 
 
   const { physical: physicalListings, digital: digitalListings } = transformListings(listings?.data || [])
+
 
   if (isLoading) {
     return (
@@ -101,7 +106,6 @@ const listings = () => {
     )
   }
 
-  console.log(physicalListings[0].media)
 
   return (
     <SafeAreaView className="flex-1 bg-[#F9FAFB] p-4">
@@ -154,6 +158,7 @@ const listings = () => {
                       stock: item.stock,
                       isDigital: item.isDigital ? "true" : "false",
                       category: JSON.stringify(item.category || null),
+                      sub: JSON.stringify(item.sub || null)
                     }
                   })}
               key={item.id}
@@ -178,6 +183,7 @@ const listings = () => {
                 source={ item.image }
                 className="w-full h-40 rounded-xl mb-3"
                 contentFit="cover"
+                style={{ borderRadius: 12, width: '100%', height: 160 }}
               />
 
               <Text className="font-NunitoRegular text-gray-500 mb-3">
@@ -204,6 +210,7 @@ const listings = () => {
                       stock: item.stock,
                       isDigital: item.isDigital ? "true" : "false",
                       category: JSON.stringify(item.category || null),
+                      sub: JSON.stringify(item.sub || null)
                     }
                   })}
                 >
@@ -275,6 +282,7 @@ const listings = () => {
                       stock: item.stock,
                       isDigital: item.isDigital ? "true" : "false",
                       category: JSON.stringify(item.category || null),
+                      sub: JSON.stringify(item.sub || null)
                     }
                   })}
                 >

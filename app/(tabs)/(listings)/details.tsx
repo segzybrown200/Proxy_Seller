@@ -46,10 +46,11 @@ export default function ListDetailsScreen() {
     extraDetails,
     fileType,
     category,
+    sub
   } = params || {};
-
-
- 
+  
+  
+  
 
 
   const defaultImage = "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f";
@@ -67,6 +68,7 @@ export default function ListDetailsScreen() {
     if (Array.isArray(val)) return val;
     return [val];
   };
+
 
   const extractImageUrls = (arr: any[]) => {
     return (arr || [])
@@ -115,7 +117,9 @@ export default function ListDetailsScreen() {
 
   const extra = parseJsonIfString(extraDetails) || [];
   const categoryObj = parseJsonIfString(category || params.category) || null;
+  const subCategoryObj = parseJsonIfString(sub || params.sub) || null;
   const isDigitalBool = String(isDigital) === "true" || isDigital === true;
+  // console.log(category)
 
 
 
@@ -134,7 +138,6 @@ export default function ListDetailsScreen() {
   const displayPrice = formatPriceDisplay(price || priceRaw || params.priceRaw, priceCents || params.priceCents);
   const displayStatus = (status === "PENDING") ? "Pending" : (status === "APPROVED" ? "Approved" : status);
 
-  console.log(isDigital);
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -157,6 +160,7 @@ export default function ListDetailsScreen() {
               price: priceRaw,
               stock: stock,
               category: categoryObj?.id || categoryObj?._id,
+              subcategory: subCategoryObj?.id || subCategoryObj?._id,
               description: description,
               isDigital: isDigital,
               condition: condition,
@@ -307,8 +311,8 @@ export default function ListDetailsScreen() {
               <Text className="font-NunitoBold text-lg mt-1">{categoryObj?.name || (category && String(category)) || 'Uncategorized'}</Text>
             </View>
             <View className="flex-1">
-              <Text className="text-gray-400 text-base font-RalewayMedium">Category Details</Text>
-              <Text className="font-NunitoBold text-lg mt-1">{categoryObj?.description || ''}</Text>
+              <Text className="text-gray-400 text-base font-RalewayMedium">Sub-Category</Text>
+              <Text className="font-NunitoBold text-lg mt-1">{subCategoryObj?.name || ''}</Text>
             </View>
           </View>
 
