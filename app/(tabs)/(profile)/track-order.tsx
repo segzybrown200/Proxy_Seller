@@ -171,7 +171,7 @@ const VendorPushToRidersScreen = () => {
   console.log(delivery);
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <View className="flex-1 bg-gray-50">
       {/* Header */}
       <View className="flex-row items-center px-4 pt-14 pb-3 border-b border-gray-200">
         <TouchableOpacity
@@ -184,7 +184,7 @@ const VendorPushToRidersScreen = () => {
       </View>
 
       {/* Map */}
-      <View className="flex-1">
+      <View className="flex-1" >
         {pickup.latitude === 0 || pickup.longitude === 0 ? (
           <View className="flex-1 justify-center items-center bg-gray-100">
             <Text className="text-gray-500 font-NunitoMedium">
@@ -221,8 +221,9 @@ const VendorPushToRidersScreen = () => {
           </View>
         )}
 
+        {/* <ScrollView> */}
         {/* Order details */}
-        <View className="absolute bottom-0 w-full">
+        <View className="w-full">
           <View className="bg-white p-5 rounded-t-3xl border-t border-gray-300">
             <Text className="text-lg font-NunitoBold text-black mb-2">
               Order Details
@@ -337,8 +338,10 @@ const VendorPushToRidersScreen = () => {
             )}
           </View>
         </View>
+        {/* </ScrollView> */}
       </View>
-    </SafeAreaView>
+      
+    </View>
   );
 };
 

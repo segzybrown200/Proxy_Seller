@@ -418,7 +418,7 @@ const SellerDashboard = () => {
                     source={{ uri: item.image }}
                     // className="w-36 h-36 rounded-2xl"
                     contentFit="cover"
-                    style={{ width: "100%", height:  65, borderRadius: 16 }}
+                    style={{ width: "100%", height:  140, borderRadius: 16 }}
                   />
                   <Text
                     numberOfLines={1}
