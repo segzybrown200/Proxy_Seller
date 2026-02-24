@@ -9,6 +9,8 @@ import {
   ScrollView,
   Linking,
   Animated,
+  Modal,
+  TextInput,
 
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
@@ -22,6 +24,8 @@ import { Image } from "expo-image";
 import { showError } from "utils/toast";
 import axios from "axios"
 import { mutate } from "swr";
+import { vendorStartDelivery, completeSelfDelivery } from "api/api";
+import * as Location from "expo-location";
 
 const socket = io("https://proxy-backend-6of2.onrender.com");
 
@@ -32,6 +36,8 @@ const VendorPushToRidersScreen = () => {
   const token = user?.token || "";
   const delivery = parsedOrder.delivery;
 
+
+
   const mapRef = useRef<MapView>(null);
   const [isPushing, setIsPushing] = useState(false);
   const [riderAssigned, setRiderAssigned] = useState<any>(null);
@@ -39,6 +45,15 @@ const VendorPushToRidersScreen = () => {
   const [currentStatus, setCurrentStatus] = useState(delivery?.status || "PENDING");
   const [riderLocation, setRiderLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const riderAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+
+  // Self-delivery states
+  const [vendorLocation, setVendorLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isStartingDelivery, setIsStartingDelivery] = useState(false);
+  const [isCompletingDelivery, setIsCompletingDelivery] = useState(false);
+  const [showOTPModal, setShowOTPModal] = useState(false);
+  const [otpInput, setOtpInput] = useState("");
+  const [deliveryStarted, setDeliveryStarted] = useState(delivery?.status === "IN_TRANSIT");
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
 
   useEffect(() => {
     if (!delivery?.id) return;
@@ -59,6 +74,31 @@ const VendorPushToRidersScreen = () => {
       socket.off("rider_assigned");
     };
   }, [delivery]);
+
+  // Request location permission and get initial location
+  useEffect(() => {
+    const requestLocationPermission = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          setLocationPermissionGranted(true);
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
+          setVendorLocation({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+        } else {
+          showError("Location permission is required for self-delivery");
+        }
+      } catch (error) {
+        console.error("Location permission error:", error);
+      }
+    };
+
+    requestLocationPermission();
+  }, []);
 
    useEffect(() => {
     if (!delivery?.id) return;
@@ -132,22 +172,100 @@ const VendorPushToRidersScreen = () => {
       setIsSearching(false);
       setIsPushing(false);
     }
+  };
 
+  // Handle vendor starting self-delivery
+  const handleStartSelfDelivery = async () => {
+    if (!vendorLocation) {
+      showError("Unable to get your current location");
+      return;
+    }
 
-    // pushOrderRider(delivery.id, token)
-    //   .then((res) => {
-    //     Alert.alert(
-    //       "Searching for riders...",
-    //       `Sent to ${res.data.data.ridersFound} nearby riders`
-    //     );
-    //   })
-    //   .catch((err) => {
-    //     showError(err.message || "Failed to push to riders");
-    //     setIsSearching(false);
-    //   })
-    //   .finally(() => {
-    //     setIsPushing(false);
-    //   });
+    setIsStartingDelivery(true);
+    try {
+      const response = await vendorStartDelivery(
+        {
+          deliveryId: delivery.id,
+          currentLat: vendorLocation.latitude,
+          currentLng: vendorLocation.longitude,
+        },
+        token
+      );
+
+      setDeliveryStarted(true);
+      setCurrentStatus("IN_TRANSIT");
+      
+      Alert.alert("Success", "You have started the delivery");
+
+      // Update local order state
+      mutate('/vendor/orders', async (data: any) => {
+        const updatedOrders = data.data.map((order: any) => {
+          if (order.id === parsedOrder.id) {
+            return {
+              ...order,
+              delivery: {
+                ...order.delivery,
+                status: 'IN_TRANSIT',
+                vendorLat: vendorLocation.latitude,
+                vendorLng: vendorLocation.longitude,
+              }
+            };
+          }
+          return order;
+        });
+        return { ...data, data: updatedOrders };
+      });
+    } catch (error: any) {
+      showError(error?.message || "Failed to start delivery");
+    } finally {
+      setIsStartingDelivery(false);
+    }
+  };
+
+  // Handle vendor completing self-delivery
+  const handleCompleteSelfDelivery = async () => {
+    setIsCompletingDelivery(true);
+    try {
+      const response = await completeSelfDelivery(
+        {
+          deliveryId: delivery.id,
+          otp: otpInput || undefined,
+        },
+        token
+      );
+
+      setCurrentStatus("DELIVERED");
+      setShowOTPModal(false);
+      setOtpInput("");
+
+      Alert.alert("Success", "Delivery completed and funds released");
+
+      // Update local order state
+      mutate('/vendor/orders', async (data: any) => {
+        const updatedOrders = data.data.map((order: any) => {
+          if (order.id === parsedOrder.id) {
+            return {
+              ...order,
+              delivery: {
+                ...order.delivery,
+                status: 'DELIVERED',
+              },
+              order: {
+                ...order.order,
+                status: 'DELIVERED',
+                serviceStatus: 'COMPLETED',
+              }
+            };
+          }
+          return order;
+        });
+        return { ...data, data: updatedOrders };
+      });
+    } catch (error: any) {
+      showError(error?.message || "Failed to complete delivery");
+    } finally {
+      setIsCompletingDelivery(false);
+    }
   };
 
   // Safely parse coordinates with fallback values
@@ -221,126 +339,238 @@ const VendorPushToRidersScreen = () => {
           </View>
         )}
 
-        {/* <ScrollView> */}
-        {/* Order details */}
-        <View className="w-full">
+        {/* Scrollable Order Details and Delivery Info */}
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          {/* Order details */}
+          <View className="w-full">
+            <View className="bg-white p-5 rounded-t-3xl border-t border-gray-300">
+              <Text className="text-lg font-NunitoBold text-black mb-2">
+                Order Details
+              </Text>
+              <ScrollView horizontal className="mb-4" showsHorizontalScrollIndicator={false}>
+             {
+                parsedOrder.listings.map((listing:any) => (
+                  <View key={listing.id} className="mb-2 mx-2 items-center">
+                    <Image
+                      source={{
+                        uri: listing.image ||
+                          "https://via.placeholder.com/100",
+                      }}
+                      className="w-16 h-16 rounded-md mr-3 mb-1"
+                      contentFit="cover"
+                      style={{ width: 64, height: 64, borderRadius: 8 }}
+                    />
+                    <Text className="text-primary-100 font-NunitoMedium">
+                      {listing.title} x {listing.quantity}
+                    </Text>
+                  </View>
+                ))
+             }
+              </ScrollView>
+
+              <Text className="text-gray-800 text-xl font-NunitoBold">
+                Total: ₦{parsedOrder?.transaction?.amountPaid.toLocaleString()}
+              </Text>
+          </View>
+          </View>
+
+          {/* Order Info */}
           <View className="bg-white p-5 rounded-t-3xl border-t border-gray-300">
             <Text className="text-lg font-NunitoBold text-black mb-2">
-              Order Details
+              Delivery Summary
             </Text>
-            <ScrollView horizontal className="mb-4" showsHorizontalScrollIndicator={false}>
-           {
-              parsedOrder.listings.map((listing:any) => (
-                <View key={listing.id} className="mb-2 mx-2 items-center">
-                  <Image
-                    source={{
-                      uri: listing.image ||
-                        "https://via.placeholder.com/100",
-                    }}
-                    className="w-16 h-16 rounded-md mr-3 mb-1"
-                    contentFit="cover"
-                    style={{ width: 64, height: 64, borderRadius: 8 }}
-                  />
-                  <Text className="text-primary-100 font-NunitoMedium">
-                    {listing.title} x {listing.quantity}
+
+            <Text className="text-primary-100 font-NunitoMedium">
+              Pickup: {delivery.pickupAddress}
+            </Text>
+            <Text className="text-primary-100 font-NunitoMedium mt-1">
+              Dropoff: {delivery.dropoffAddress}
+            </Text>
+
+            <Text className="text-gray-800 text-xl font-NunitoBold mt-3">
+              Fare: ₦{delivery.fareAmount.toLocaleString()}
+            </Text>
+
+            <View className="mt-5">
+              {riderAssigned || parsedOrder?.rider ? (
+                 <View className="flex-row items-center mb-6 mt-2">
+                <Image
+                  source={{
+                    uri:
+                      parsedOrder?.rider?.kyc?.selfieUrl ||
+                      "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+                  }}
+                  className="w-12 h-12 rounded-full mr-3"
+                  contentFit="cover"
+                  style={{ borderRadius: 100, width: 48, height: 48, marginRight: 12 }}
+                />
+                <View className="flex-1">
+                  <Text className="font-NunitoBold text-black text-lg">
+                    {parsedOrder?.rider?.name}
                   </Text>
+                  <Text className="font-NunitoMedium text-gray-500">
+                    {parsedOrder?.rider?.vehicleType || "Bike"}
+                  </Text>
+                  <View className="flex flex-row gap-3">
+                     <Text className="font-NunitoMedium text-gray-500">
+                    {parsedOrder?.rider?.vehicle?.model}
+                  </Text>
+                     <Text className="font-NunitoMedium text-gray-500">
+                    PlateNumber: {parsedOrder?.rider?.vehicle?.plateNumber}
+                  </Text>
+                  </View>
+                 
                 </View>
-              ))
-           }
-            </ScrollView>
-
-            <Text className="text-gray-800 text-xl font-NunitoBold">
-              Total: ₦{parsedOrder?.transaction?.amountPaid.toLocaleString()}
-            </Text>
-        </View>
-        </View>
-
-        {/* Order Info */}
-        <View className="bg-white p-5 rounded-t-3xl border-t border-gray-300">
-          <Text className="text-lg font-NunitoBold text-black mb-2">
-            Delivery Summary
-          </Text>
-
-          <Text className="text-primary-100 font-NunitoMedium">
-            Pickup: {delivery.pickupAddress}
-          </Text>
-          <Text className="text-primary-100 font-NunitoMedium mt-1">
-            Dropoff: {delivery.dropoffAddress}
-          </Text>
-
-          <Text className="text-gray-800 text-xl font-NunitoBold mt-3">
-            Fare: ₦{delivery.fareAmount.toLocaleString()}
-          </Text>
-
-          <View className="mt-5">
-            {riderAssigned || parsedOrder?.rider ? (
-               <View className="flex-row items-center mb-6 mt-2">
-              <Image
-                source={{
-                  uri:
-                    parsedOrder?.rider?.kyc?.selfieUrl ||
-                    "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-                }}
-                className="w-12 h-12 rounded-full mr-3"
-                contentFit="cover"
-                style={{ borderRadius: 100, width: 48, height: 48, marginRight: 12 }}
-              />
-              <View className="flex-1">
-                <Text className="font-NunitoBold text-black text-lg">
-                  {parsedOrder?.rider?.name}
-                </Text>
-                <Text className="font-NunitoMedium text-gray-500">
-                  {parsedOrder?.rider?.vehicleType || "Bike"}
-                </Text>
-                <View className="flex flex-row gap-3">
-                   <Text className="font-NunitoMedium text-gray-500">
-                  {parsedOrder?.rider?.vehicle?.model}
-                </Text>
-                   <Text className="font-NunitoMedium text-gray-500">
-                  PlateNumber: {parsedOrder?.rider?.vehicle?.plateNumber}
-                </Text>
-                </View>
-               
+                <TouchableOpacity
+                  onPress={() => Linking.openURL(`tel:${parsedOrder.rider?.phone}`)}
+                  className="bg-primary-100 px-3 py-3 rounded-full"
+                >
+                  <Ionicons name="call-outline" size={20} color="#fff" />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                onPress={() => Linking.openURL(`tel:${parsedOrder.rider?.phone}`)}
-                className="bg-primary-100 px-3 py-3 rounded-full"
-              >
-                <Ionicons name="call-outline" size={20} color="#fff" />
+              ) : parsedOrder.delivery.status === "SEARCH_OF_RIDER" ? 
+              <View>
+                <Text className="text-primary-100 font-NunitoMedium">
+                  Order is currently being searched by riders so hold on so a rider can accept...
+                </Text>
+              </View>
+              : deliveryStarted ? (
+                <View className="mt-4 gap-3">
+                  {currentStatus === "IN_TRANSIT" && (
+                    <TouchableOpacity
+                      disabled={isCompletingDelivery}
+                      onPress={() => setShowOTPModal(true)}
+                      className={`py-3 rounded-full ${
+                        isCompletingDelivery
+                          ? "bg-gray-400"
+                          : "bg-green-600"
+                      }`}
+                    >
+                      {isCompletingDelivery ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text className="text-white text-center font-NunitoBold text-lg">
+                          Complete Delivery
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                  {currentStatus === "DELIVERED" && (
+                    <View className="py-3 rounded-full bg-green-100 border border-green-600">
+                      <Text className="text-green-600 text-center font-NunitoBold text-lg">
+                        ✓ Delivery Completed
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View className="mt-4 gap-3">
+                  <TouchableOpacity
+                    disabled={isPushing || isSearching}
+                    onPress={handlePushToRiders}
+                    className={`py-3 rounded-full ${
+                      isSearching
+                        ? "bg-yellow-500"
+                        : isPushing
+                          ? "bg-gray-400"
+                          : "bg-[#004CFF]"
+                    }`}
+                  >
+                    {isPushing || isSearching ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text className="text-white text-center font-NunitoBold text-lg">
+                        Push to Nearby Riders
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    disabled={isStartingDelivery || !locationPermissionGranted}
+                    onPress={handleStartSelfDelivery}
+                    className={`py-3 rounded-full ${
+                      isStartingDelivery
+                        ? "bg-gray-400"
+                        : !locationPermissionGranted
+                        ? "bg-gray-300"
+                        : "bg-green-600"
+                    }`}
+                  >
+                    {isStartingDelivery ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text className="text-white text-center font-NunitoBold text-lg">
+                        {locationPermissionGranted ? "Start Self Delivery" : "Enable Location to Self Deliver"}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+
+      {/* OTP Modal for completing delivery */}
+      <Modal
+        visible={showOTPModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowOTPModal(false)}
+      >
+        <View className="flex-1 bg-black/50 justify-end">
+          <View className="bg-white rounded-t-3xl p-5 pb-8">
+            <View className="flex-row justify-between items-center mb-5">
+              <Text className="text-2xl font-NunitoBold">Complete Delivery</Text>
+              <TouchableOpacity onPress={() => setShowOTPModal(false)}>
+                <Ionicons name="close" size={28} color="black" />
               </TouchableOpacity>
             </View>
-            ) : parsedOrder.delivery.status === "SEARCH_OF_RIDER" ? 
-            <View>
-              <Text className="text-primary-100 font-NunitoMedium">
-                Order is currently being searched by riders so hold on so a rider can accept...
+
+            <Text className="text-gray-600 font-NunitoMedium mb-4">
+              Enter the OTP provided by the customer (if required):
+            </Text>
+
+            <TextInput
+              placeholder="Enter OTP (Optional)"
+              placeholderTextColor="#999"
+              value={otpInput}
+              onChangeText={setOtpInput}
+              keyboardType="number-pad"
+              maxLength={6}
+              className="border border-gray-300 rounded-lg px-4 py-3 mb-4 font-NunitoMedium text-lg"
+            />
+
+            <TouchableOpacity
+              disabled={isCompletingDelivery}
+              onPress={handleCompleteSelfDelivery}
+              className={`py-3 rounded-full ${
+                isCompletingDelivery
+                  ? "bg-gray-400"
+                  : "bg-green-600"
+              }`}
+            >
+              {isCompletingDelivery ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text className="text-white text-center font-NunitoBold text-lg">
+                  Confirm Delivery
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              disabled={isCompletingDelivery}
+              onPress={() => setShowOTPModal(false)}
+              className="mt-3 py-3 rounded-full bg-gray-200"
+            >
+              <Text className="text-gray-700 text-center font-NunitoBold text-lg">
+                Cancel
               </Text>
-            </View>
-            :  (
-              <TouchableOpacity
-                disabled={isPushing || isSearching}
-                onPress={handlePushToRiders}
-                className={`mt-4 py-3 rounded-full ${
-                  isSearching
-                    ? "bg-yellow-500"
-                    : isPushing
-                      ? "bg-gray-400"
-                      : "bg-[#004CFF]"
-                }`}
-              >
-                {isPushing || isSearching ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text className="text-white text-center font-NunitoBold text-lg">
-                    Push to Nearby Riders
-                  </Text>
-                )}
-              </TouchableOpacity>
-            )}
+            </TouchableOpacity>
           </View>
         </View>
-        {/* </ScrollView> */}
-      </View>
-      
+      </Modal>
     </View>
   );
 };

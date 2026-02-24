@@ -43,6 +43,7 @@ const schema = Yup.object().shape({
     .oneOf(["new", "used"])
     .required("Condition is required"),
   description: Yup.string().required("Description is required"),
+  isRenderedService: Yup.boolean(),
   extraDetails: Yup.array().of(
     Yup.object().shape({
       title: Yup.string().required("Title required"),
@@ -83,6 +84,7 @@ export default function EditListingScreen() {
       categoryId: "",
       subcategoryId: "",
       description: "",
+      isRenderedService: false,
       listingType: "physical",
       condition: "new",
       extraDetails: [],
@@ -111,6 +113,7 @@ export default function EditListingScreen() {
         stock: Number(params.stock ?? 0) || 0,
         categoryId: params.category || (params.category && (params.category.id || params.category._id)) || '',
         description: params.description || '',
+        isRenderedService: params.isRenderedService === true || String(params.isRenderedService) === 'true',
         listingType: (params.isDigital === true || String(params.isDigital) === 'true') ? 'digital' as const : 'physical' as const,
         condition: params.condition || 'new',
         extraDetails: Array.isArray(parsedDetails) ? parsedDetails : [],
@@ -192,6 +195,7 @@ export default function EditListingScreen() {
       formData.append("subCategoryId", data.subcategoryId);
       formData.append("condition", data.condition);
       formData.append("isDigital", data.listingType === "digital" ? "true" : "");
+      formData.append("isRenderedService", data.isRenderedService ? "true" : "");
       formData.append("replaceMedia", replaceMedia.toString());
 
       if (data.extraDetails && data.extraDetails.length > 0) {
@@ -502,6 +506,31 @@ export default function EditListingScreen() {
         {errors.description && (
           <Text className="text-red-500 mb-2">{errors.description.message}</Text>
         )}
+
+        {/* Rendered Service Checkbox */}
+        <View className="flex-row items-center mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+          <Controller
+            control={control}
+            name="isRenderedService"
+            render={({ field: { onChange, value } }) => (
+              <TouchableOpacity
+                onPress={() => onChange(!value)}
+                className="flex-row items-center flex-1"
+              >
+                <View
+                  className={`w-6 h-6 rounded border-2 mr-3 items-center justify-center ${
+                    value ? "bg-[#004CFF] border-[#004CFF]" : "border-gray-400"
+                  }`}
+                >
+                  {value && <Ionicons name="checkmark" size={16} color="white" />}
+                </View>
+                <Text className="font-NunitoSemiBold text-base text-gray-700">
+                  This is a rendered service
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
 
         {/* Media Section */}
         <Text className="text-sm text-gray-600 font-NunitoSemiBold mb-1">MEDIA</Text>

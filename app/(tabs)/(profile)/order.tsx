@@ -22,7 +22,6 @@ const OrderScreen = () => {
   const { isLoading, orders: data, isError } = useOrders(token);
 
   const orders = useMemo(() => data?.data ?? [], [data]);
-  console.log(orders[1])
 
   const renderItem = ({ item }: any) => (
     <TouchableOpacity

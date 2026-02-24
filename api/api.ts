@@ -5,7 +5,24 @@ const API_URL = "https://proxy-backend-6of2.onrender.com/api";
 
 export const api = axios.create({
   baseURL: API_URL,
+  timeout: 30000, // 30 second timeout
 });
+
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (!error.response) {
+      // Network error or backend is down
+      if (error.code === 'ECONNABORTED') {
+        error.message = 'Request timeout - server not responding. Please check your internet connection.';
+      } else if (error.message === 'Network Error') {
+        error.message = 'Network error - proxy backend is not responding. Please check if the server is running.';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const setAuthToken = (token: string | null) => {
   if (token) api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
@@ -19,6 +36,13 @@ export const createSeller = async(data: { email: string; password: string, name:
   });
 
 }
+export const verifyNIN = async(nin: string) => {
+  // Call backend NIN verification endpoint
+  return api.post("/kyc/verify-nin", { nin }).catch((error) => {
+    throw error.response?.data || error;
+  });
+}
+
 export const UploadKYC = async(data: FormData, token: string) => {
   return api.post("/kyc/submit", data, {
     headers: {
@@ -248,6 +272,26 @@ export const getVendorWallet = async(token:string) => {
 
 export const getVendorBankDetails = async(token:string) => {
   return api.get("/vendor/get-vendor-bank-details", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).catch((error) => {
+    throw error.response?.data || error;
+  });
+}
+
+export const vendorStartDelivery = async(data: { deliveryId: string; currentLat: number; currentLng: number }, token: string) => {
+  return api.post("/vendor/delivery/start", data, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).catch((error) => {
+    throw error.response?.data || error;
+  });
+}
+
+export const completeSelfDelivery = async(data: { deliveryId: string; otp?: string }, token: string) => {
+  return api.post("/vendor/delivery/complete", data, {
     headers: {
       Authorization: `Bearer ${token}`
     }

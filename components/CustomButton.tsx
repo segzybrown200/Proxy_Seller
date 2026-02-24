@@ -25,7 +25,7 @@ const CustomButton:React.FC<IData> = ({
       onPress={handlePress || handlePress1}
       activeOpacity={0.7}
       className={`bg-primary-100 w-full rounded-xl min-h-[62px] flex flex-row justify-center items-center ${containerStyles} ${
-        isLoading ? "opacity-50" : ""
+        isLoading || disabled ? "opacity-50" : ""
       }`}
       disabled={isLoading || disabled}
       

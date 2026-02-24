@@ -14,13 +14,16 @@ import { router, useLocalSearchParams } from "expo-router";
 import CustomButton from "../../components/CustomButton";
 import FormField from "../../components/FormFields";
 import { showError, showSuccess } from "utils/toast";
-import { UploadKYC } from "api/api";
+import { UploadKYC, verifyNIN } from "api/api";
 
 const KYCScreen = () => {
   const [idImage, setIdImage] = useState<string | null>(null);
   const [selfie, setSelfie] = useState<string | null>(null);
   const [nin, setNin] = useState<string>("");
   const [ninError, setNinError] = useState<string | null>(null);
+  const [ninVerified, setNinVerified] = useState(false);
+  const [verifyingNin, setVerifyingNin] = useState(false);
+  const [verifiedFullName, setVerifiedFullName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { token, email, phone, vendorId } = useLocalSearchParams();
 
@@ -84,16 +87,65 @@ const KYCScreen = () => {
     }
   };
 
-  const handleSubmit = async () => {
-    setLoading(true);
-    // Validate NIN: exactly 11 numeric digits
+  const handleVerifyNin = async () => {
+    setVerifyingNin(true);
     const ninDigitsOnly = nin.replace(/\D/g, "");
+    
     if (ninDigitsOnly.length !== 11) {
-      setLoading(false);
+      setVerifyingNin(false);
       setNinError("NIN must be exactly 11 digits.");
       return;
     }
-    setNinError(null);
+    
+    try {
+      setNinError(null);
+      const result = await verifyNIN(ninDigitsOnly);
+      
+      // Backend returns success response with verificationData and reportID
+      if (result.status === 200 || result.data) {
+        setNinVerified(true);
+        // Extract full name from verification data
+        const verificationData = result.data?.data?.verificationData?.data || result.data;
+        let fullName = "Verified";
+
+        
+        // Construct full name from available fields
+        const nameParts: string[] = [];
+        if (verificationData?.firstname) nameParts.push(verificationData.firstname);
+        if (verificationData?.middlename) nameParts.push(verificationData.middlename);
+        if (verificationData?.surname) nameParts.push(verificationData.surname);
+        if (verificationData?.lastname && !verificationData?.surname) nameParts.push(verificationData.lastname);
+        
+        if (nameParts.length > 0) {
+          fullName = nameParts.join(" ");
+        }
+        
+        setVerifiedFullName(fullName);
+        showSuccess("NIN verified successfully!");
+      } else {
+        setNinError("NIN verification failed. Please check and try again.");
+        setNinVerified(false);
+        setVerifiedFullName(null);
+      }
+    } catch (error: any) {
+      console.error("NIN verification error:", error);
+      setNinError(error?.message || "Failed to verify NIN. Please try again.");
+      setNinVerified(false);
+      setVerifiedFullName(null);
+    } finally {
+      setVerifyingNin(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    
+    // Check if NIN is verified first
+    if (!ninVerified) {
+      setLoading(false);
+      showError("Please verify your NIN before submitting.");
+      return;
+    }
 
     if (!idImage || !selfie) {
       setLoading(false);
@@ -114,6 +166,7 @@ const KYCScreen = () => {
 
     const formData = new FormData();
     // Append digits-only NIN to payload
+    const ninDigitsOnly = nin.replace(/\D/g, "");
     formData.append('nin', ninDigitsOnly);
 
     // Append files with uri/name/type so backend and fetch/XHR can detect them
@@ -127,6 +180,8 @@ const KYCScreen = () => {
       setIdImage(null);
       setSelfie(null);
       setNin('');
+      setNinVerified(false);
+      setVerifiedFullName(null);
       router.replace({ pathname: '/(auth)/location', params: { email: email, phone: phone, vendorId: vendorId } });
       }).catch((error) => {
         console.log(error)
@@ -181,26 +236,60 @@ const KYCScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* NIN Input */}
+      {/* NIN Input with Verify Button */}
       <View className="mb-6 px-5">
         <Text className="text-lg font-NunitoLight mb-2 text-gray-700">
           National Identification Number (NIN)
         </Text>
-        <FormField
-          title="NIN"
-          placeholder="Enter your 11-digit NIN"
-          value={nin}
-          handleChangeText={(text: string) => {
-            // Allow only digits in input state
-            const digitsOnly = text.replace(/\D/g, "");
-            setNin(digitsOnly);
-            if (ninError) setNinError(null);
-          }}
-          otherStyles=""
-        />
+        <View className="flex-row gap-2 items-end">
+          <View className="flex-1">
+            <FormField
+              title="NIN"
+              placeholder="Enter your 11-digit NIN"
+              value={nin}
+              handleChangeText={(text: string) => {
+                // Allow only digits in input state
+                const digitsOnly = text.replace(/\D/g, "");
+                setNin(digitsOnly);
+                if (ninError) setNinError(null);
+                if (ninVerified) setNinVerified(false);
+              }}
+              otherStyles=""
+            />
+          </View>
+          <TouchableOpacity
+            onPress={handleVerifyNin}
+            disabled={verifyingNin || nin.replace(/\D/g, "").length !== 11 || ninVerified}
+            className={`mb-3 px-4 py-3 rounded-lg flex-row items-center gap-2 ${
+              ninVerified
+                ? "bg-green-500"
+                : verifyingNin || nin.replace(/\D/g, "").length !== 11
+                ? "bg-gray-300"
+                : "bg-primary-100"
+            }`}
+          >
+            {ninVerified ? (
+              <>
+                <Ionicons name="checkmark-circle" size={20} color="white" />
+                <Text className="text-white font-NunitoLight text-sm">
+                  Verified
+                </Text>
+              </>
+            ) : (
+              <Text className="text-white font-NunitoLight text-sm">
+                {verifyingNin ? "Verifying..." : "Verify NIN"}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
         {ninError && (
           <Text className="text-red-500 font-NunitoLight text-[13px] mt-[10px]">
             {ninError}
+          </Text>
+        )}
+        {verifiedFullName && ninVerified && (
+          <Text className="text-green-600 font-NunitoLight text-[14px] mt-[10px]">
+            {verifiedFullName}
           </Text>
         )}
         <Text className="text-gray-400 text-[13px] mt-2">
@@ -242,6 +331,7 @@ const KYCScreen = () => {
           title="Submit for Verification"
           handlePress1={handleSubmit}
           isLoading={loading}
+          disabled={!ninVerified}
         />
       </View>
     </ScrollView>

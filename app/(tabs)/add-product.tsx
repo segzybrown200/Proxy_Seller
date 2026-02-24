@@ -45,6 +45,7 @@ const schema = Yup.object().shape({
     .oneOf(["new", "used"])
     .required("Condition is required"),
   details: Yup.string().required("Details are required"),
+  isRenderedService: Yup.boolean(),
   descriptions: Yup.array().of(
     Yup.object().shape({
       title: Yup.string().required("Title required"),
@@ -64,6 +65,7 @@ type FormValues = {
   listingType: "physical" | "digital";
   condition: "new" | "used";
   details: string;
+  isRenderedService: boolean;
   descriptions: { title: string; description: string }[];
   media: { uri: string; type: string }[];
 };
@@ -115,6 +117,7 @@ const addproduct = () => {
       subcategoryId: "",
       media: [],
       details: "",
+      isRenderedService: false,
       listingType: "physical",
       condition: "new",
       descriptions: [],
@@ -286,6 +289,7 @@ const addproduct = () => {
       formData.append("subCategoryId", data.subcategoryId);
       formData.append("isDigital", data.listingType === "digital" ? "true" : "");
       formData.append("condition", data.condition);
+      formData.append("isRenderedService", data.isRenderedService ? "true" : "");
       formData.append("extraDetails", JSON.stringify(data.descriptions));
 
       console.log("FormData created:", formData);
@@ -703,6 +707,31 @@ const addproduct = () => {
         </>
       )}
 
+          {/* Rendered Service Checkbox */}
+      <View className="flex-row items-center mt-6 mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+        <Controller
+          control={control}
+          name="isRenderedService"
+          render={({ field: { onChange, value } }) => (
+            <TouchableOpacity
+              onPress={() => onChange(!value)}
+              className="flex-row items-center flex-1"
+            >
+              <View
+                className={`w-6 h-6 rounded border-2 mr-3 items-center justify-center ${
+                  value ? "bg-[#004CFF] border-[#004CFF]" : "border-gray-400"
+                }`}
+              >
+                {value && <Ionicons name="checkmark" size={16} color="white" />}
+              </View>
+              <Text className="font-NunitoSemiBold text-base text-gray-700">
+                This is a rendered service
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
+
       {/* Add Other Descriptions */}
       <View className="mt-6">
         <TouchableOpacity
@@ -780,6 +809,8 @@ const addproduct = () => {
           {(errors.details as any)?.message}
         </Text>
       )}
+
+  
 
       
 

@@ -46,7 +46,8 @@ export default function ListDetailsScreen() {
     extraDetails,
     fileType,
     category,
-    sub
+    sub,
+    isRenderedService
   } = params || {};
   
   
@@ -163,6 +164,7 @@ export default function ListDetailsScreen() {
               subcategory: subCategoryObj?.id || subCategoryObj?._id,
               description: description,
               isDigital: isDigital,
+              isRenderedService: isRenderedService,
               condition: condition,
               media: JSON.stringify(media || []),
               extraDetails: JSON.stringify(extraDetails || [])
@@ -331,6 +333,18 @@ export default function ListDetailsScreen() {
               )) : (
                 <Text className="text-gray-600">{String(extra)}</Text>
               )}
+            </View>
+          )}
+
+          {/* Rendered Service Badge */}
+          {isRenderedService && (
+            <View className="mb-4 px-1">
+              <View className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex-row items-center">
+                <Ionicons name="checkmark-circle" size={20} color="#004CFF" />
+                <Text className="font-NunitoSemiBold text-base text-blue-700 ml-2">
+                  This is a rendered service
+                </Text>
+              </View>
             </View>
           )}
 
