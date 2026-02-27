@@ -1,4 +1,4 @@
-import { getAllMessages, getBanks, getCategory, getConversions, getDashboardStats, getListings, getOrders, getVendor, getVendorBankDetails, getVendorWallet } from "api/api"
+import { getAllMessages, getBanks, getCategory, getConversions, getDashboardStats, getListings, getOrders, getVendor, getVendorBankDetails, getVendorWallet, getVendorPaymentHistory, getVendorPaymentDetail } from "api/api"
 import useSWR  from "swr"
 import { SWRConfiguration } from "swr"
 
@@ -207,6 +207,64 @@ export const useGetVendorBankDetails = (token:string)=>{
   );
     return {
         bankDetails: data?.data || [],
+        isLoading,
+        isError: error,
+        mutate,
+    };
+}
+
+export const usePaymentHistory = (token: string, limit = 20, skip = 0, status?: string, startDate?: string, endDate?: string) => {
+    const fetcher = (token: string) => getVendorPaymentHistory(token, limit, skip, status, startDate, endDate);
+    
+    const { data, error, isLoading, mutate } = useSWR(
+        token ? `/vendor/payment-history?limit=${limit}&skip=${skip}&status=${status || ''}&startDate=${startDate || ''}&endDate=${endDate || ''}` : null,
+        () => fetcher(token),
+        {
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,
+            revalidateOnMount: true,
+        }
+    );
+
+
+    return {
+        payments: data?.data?.data?.payments || [],
+        summary: data?.data?.data?.summary || {
+            totalTransactions: 0,
+            totalRevenue: 0,
+            totalCommission: 0,
+            totalShipping: 0,
+            averageTransactionValue: 0
+        },
+        pagination: data?.data?.data?.pagination || {
+            limit: Number(limit),
+            skip: Number(skip),
+            total: 0,
+            hasMore: false
+        },
+        isLoading,
+        isError: error,
+        mutate,
+    };
+}
+
+export const usePaymentDetail = (transactionId: string | null, token: string) => {
+    const fetcher = (transactionId: string, token: string) => getVendorPaymentDetail(transactionId, token);
+
+    console.log(transactionId)
+
+    const { data, error, isLoading, mutate } = useSWR(
+        transactionId && token ? `/vendor/payment-history/${transactionId}` : null,
+        () => fetcher(transactionId!, token),
+        {
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,
+            revalidateOnMount: true,
+        }
+    );
+
+    return {
+        transaction: data?.data?.data || null,
         isLoading,
         isError: error,
         mutate,

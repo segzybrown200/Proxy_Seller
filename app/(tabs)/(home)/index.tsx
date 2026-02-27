@@ -18,8 +18,11 @@ import { vendorAddress } from "api/api";
 import { useSelector } from "react-redux";
 import { selectUser } from "global/authSlice";
 import { router } from "expo-router";
+import io from "socket.io-client";
 
 const screenWidth = Dimensions.get("window").width;
+
+const socket = io("https://proxy-backend-6of2.onrender.com");
 
 const SellerDashboard = () => {
   const user: any = useSelector(selectUser);
@@ -32,7 +35,6 @@ const SellerDashboard = () => {
     mutate: mutateVendor,
   } = useVendors(vendorId, token);
   const { isLoading, dashboard, isError } = useDashboardStats(token);
-
 
   const stats = dashboard?.data || {
     runningOrders: 0,
@@ -77,7 +79,7 @@ const SellerDashboard = () => {
     lat1: number,
     lon1: number,
     lat2: number,
-    lon2: number
+    lon2: number,
   ) => {
     const toRad = (v: number) => (v * Math.PI) / 180;
     const R = 6371e3; // metres
@@ -123,7 +125,7 @@ const SellerDashboard = () => {
           {
             accuracy: Location.Accuracy.Balanced,
             timeInterval: 120000, // 2 minutes
-            distanceInterval: 50, // 100 meters
+            distanceInterval: 1, // 100 meters
           },
           async (loc) => {
             try {
@@ -147,7 +149,7 @@ const SellerDashboard = () => {
                 prev.latitude,
                 prev.longitude,
                 latitude,
-                longitude
+                longitude,
               );
 
               // cooldown: avoid updating backend too frequently (e.g., once every 5 minutes)
@@ -160,7 +162,7 @@ const SellerDashboard = () => {
                 now - lastUpdateRef.current > cooldown
               ) {
                 console.log(
-                  `✅ Vendor moved ${Math.round(meters)}m, updating location`
+                  `✅ Vendor moved ${Math.round(meters)}m, updating location`,
                 );
 
                 let address = "";
@@ -215,6 +217,12 @@ const SellerDashboard = () => {
                 console.log("Sending payload:", payload);
                 try {
                   await vendorAddress(payload);
+                  socket.emit("vendor_update_location", {
+                    vendorId,
+                    lat: latitude,
+                    lng: longitude,
+                  });
+
                   console.log("Location updated successfully");
                   // refresh vendor profile so UI reflects new location
                   try {
@@ -231,7 +239,7 @@ const SellerDashboard = () => {
             } catch (err) {
               console.warn("Error handling location update", err);
             }
-          }
+          },
         );
       } catch (err) {
         console.warn("Failed to start location watcher", err);
@@ -418,7 +426,7 @@ const SellerDashboard = () => {
                     source={{ uri: item.image }}
                     // className="w-36 h-36 rounded-2xl"
                     contentFit="cover"
-                    style={{ width: "100%", height:  140, borderRadius: 16 }}
+                    style={{ width: "100%", height: 140, borderRadius: 16 }}
                   />
                   <Text
                     numberOfLines={1}

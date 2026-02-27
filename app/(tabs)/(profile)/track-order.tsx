@@ -38,6 +38,7 @@ const VendorPushToRidersScreen = () => {
 
 
 
+
   const mapRef = useRef<MapView>(null);
   const [isPushing, setIsPushing] = useState(false);
   const [riderAssigned, setRiderAssigned] = useState<any>(null);
@@ -54,6 +55,7 @@ const VendorPushToRidersScreen = () => {
   const [otpInput, setOtpInput] = useState("");
   const [deliveryStarted, setDeliveryStarted] = useState(delivery?.status === "IN_TRANSIT");
   const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+  const [locationSubscription, setLocationSubscription] = useState<any>(null);
 
   useEffect(() => {
     if (!delivery?.id) return;
@@ -98,6 +100,11 @@ const VendorPushToRidersScreen = () => {
     };
 
     requestLocationPermission();
+
+    // Cleanup on unmount
+    return () => {
+      stopLocationTracking();
+    };
   }, []);
 
    useEffect(() => {
@@ -106,7 +113,6 @@ const VendorPushToRidersScreen = () => {
     socket.on("delivery_location_update", (data) => {
       if (data?.deliveryId === delivery.id) {
         const newLocation = { latitude: data.lat, longitude: data.lng };
-        console.log(newLocation)
         setRiderLocation(newLocation);
         Animated.timing(riderAnim, {
           toValue: { x: data.lat, y: data.lng },
@@ -122,6 +128,9 @@ const VendorPushToRidersScreen = () => {
       }
     });
 
+    // Listen for vendor location updates
+
+
     // socket.on("rider_assigned", (data) => {
     //   if (data?.deliveryId === delivery.id) {
     //     setRiderInfo(data.rider);
@@ -132,6 +141,7 @@ const VendorPushToRidersScreen = () => {
       socket.off("delivery_location_update");
       socket.off("delivery_status_update");
       socket.off("rider_assigned");
+      socket.off("vendor_location_update");
     };
   }, [delivery]);
 
@@ -215,10 +225,58 @@ const VendorPushToRidersScreen = () => {
         });
         return { ...data, data: updatedOrders };
       });
+
+      // Start tracking location updates to backend
+      startLocationTracking();
     } catch (error: any) {
       showError(error?.message || "Failed to start delivery");
     } finally {
       setIsStartingDelivery(false);
+    }
+  };
+
+  // Start tracking vendor location and emit updates to backend
+  const startLocationTracking = async () => {
+    try {
+      const subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 5000, // Update every 5 seconds
+          distanceInterval: 10, // Or every 10 meters
+        },
+        (location) => {
+          const newLocation = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
+          setVendorLocation(newLocation);
+
+          console.log(newLocation)
+
+          // Emit location update to backend via socket
+          socket.emit("vendor_update_location", {
+            vendorId: user?.id,
+            lat: location.coords.latitude,
+            lng: location.coords.longitude,
+          });
+
+          console.log("📍 Vendor location updated:", newLocation);
+        }
+      );
+
+      setLocationSubscription(subscription);
+    } catch (error) {
+      console.error("Error starting location tracking:", error);
+      showError("Failed to track location");
+    }
+  };
+
+  // Stop location tracking
+  const stopLocationTracking = () => {
+    if (locationSubscription) {
+      locationSubscription.remove();
+      setLocationSubscription(null);
+      console.log("🛑 Location tracking stopped");
     }
   };
 
@@ -237,6 +295,9 @@ const VendorPushToRidersScreen = () => {
       setCurrentStatus("DELIVERED");
       setShowOTPModal(false);
       setOtpInput("");
+
+      // Stop location tracking
+      stopLocationTracking();
 
       Alert.alert("Success", "Delivery completed and funds released");
 
@@ -286,8 +347,6 @@ const VendorPushToRidersScreen = () => {
     latitude: Number(parsedOrder.delivery?.rider?.currentLat) || 0,
     longitude: Number(parsedOrder.delivery?.rider?.currentLng) || 0,
   }
-  console.log(delivery);
-
   return (
     <View className="flex-1 bg-gray-50">
       {/* Header */}
@@ -326,10 +385,13 @@ const VendorPushToRidersScreen = () => {
            {riderLocation && (
             <Marker coordinate={riderLocation } title="Rider" pinColor="red" />
           )}
+          {deliveryStarted && vendorLocation && (
+            <Marker coordinate={vendorLocation} title="Your Location (Vendor)" pinColor="purple" />
+          )}
           <Polyline
             coordinates={[
               pickup,
-              ...(riderLocation ? [riderLocation] : []),
+              ...(deliveryStarted && vendorLocation ? [vendorLocation] : riderLocation ? [riderLocation] : []),
               dropoff,
             ]}
             strokeColor="#004CFF"

@@ -92,7 +92,6 @@ export function useSessionAndSocket(
           payload.sessionId = sessionId;
         }
 
-        console.log(sessionId);
 
         const { data } = await api.post("/sessions/register", payload);
 

@@ -299,3 +299,24 @@ export const completeSelfDelivery = async(data: { deliveryId: string; otp?: stri
     throw error.response?.data || error;
   });
 }
+
+export const getVendorPaymentHistory = async(token: string, limit = 20, skip = 0, status?: string, startDate?: string, endDate?: string) => {
+  return api.get("/payments/vendor/payments", {
+    params: { limit, skip, status, startDate, endDate },
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).catch((error) => {
+    throw error.response?.data || error;
+  });
+}
+
+export const getVendorPaymentDetail = async(transactionId: string, token: string) => {
+  return api.get(`/payments/vendor/payments/${transactionId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).catch((error) => {
+    throw error.response?.data || error;
+  });
+}

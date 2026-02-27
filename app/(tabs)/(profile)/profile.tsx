@@ -43,6 +43,12 @@ export default function ProfileScreen() {
       color: "#8B5CF6",
       route: "wallet",
     },
+    {
+      title: "Payment History",
+      icon: <MaterialCommunityIcons name="history" size={24} color="#8B5CF6" />,
+      color: "#8B5CF6",
+      route: "payment-history",
+    },
   ];
 
   const accountItems = [
@@ -70,6 +76,16 @@ export default function ProfileScreen() {
     const stats = wallet?.data || {
       balance: 0,
     };
+
+    if (isLoading || isError) {
+      return (
+        <SafeAreaView className="flex-1 items-center justify-center">
+          <Text className="text-lg font-NunitoRegular text-gray-500">
+            {isLoading ? "Loading wallet details..." : "Failed to load wallet details."}
+          </Text>
+        </SafeAreaView>
+      );
+    }
 
   return (
     <SafeAreaView className="flex-1 bg-white">
