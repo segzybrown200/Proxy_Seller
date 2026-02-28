@@ -148,12 +148,14 @@ const VendorPushToRidersScreen = () => {
   const handlePushToRiders = async () => {
     setIsPushing(true);
     setIsSearching(true);
+    console.log(delivery.id)
     try{
     const res = await axios.post(`https://proxy-backend-6of2.onrender.com/api/vendor/push-order-to-rider/${delivery.id}`, {}, {
       headers: {
         Authorization: `Bearer ${token}`
       }
     })
+
     
     mutate('/vendor/orders', async (data:any) => {
       const updatedOrders = data.data.map((order:any) => {
@@ -178,6 +180,7 @@ const VendorPushToRidersScreen = () => {
     setIsPushing(false);
 
     }catch(err){
+      console.log(err)
       showError("Failed to push to riders");
       setIsSearching(false);
       setIsPushing(false);

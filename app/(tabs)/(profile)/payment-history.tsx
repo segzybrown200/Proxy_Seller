@@ -210,9 +210,9 @@ export default function PaymentHistoryScreen() {
           showsHorizontalScrollIndicator={false}
           className="flex-row"
         >
-          {statuses.map((status) => (
+          {statuses.map((status, index) => (
             <TouchableOpacity
-              key={status.key}
+              key={status.key ?? `status-${index}`}
               onPress={() => {
                 setSelectedStatus(status.key);
                 setSkip(0);
@@ -280,7 +280,7 @@ export default function PaymentHistoryScreen() {
           renderItem={renderPaymentCard}
           keyExtractor={(item, index) => `${item.transactionId}-${index}`}
           contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 16 }}
-          scrollEnabled={false}
+          // allow vertical scrolling
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.1}
           refreshControl={
