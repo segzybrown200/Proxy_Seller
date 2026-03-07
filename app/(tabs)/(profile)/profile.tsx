@@ -89,33 +89,34 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <View className="bg-primary-100 p-5 mt-10 rounded-xl">
-        <View className="flex-row items-center ">
-              <TouchableOpacity onPress={()=>router.back()} className="bg-[#ECF0F4] p-2 rounded-full">
-                <Ionicons name="chevron-back" size={22} color="black" />
-              </TouchableOpacity>
-              <Text className="text-2xl ml-10 font-RalewayBold text-white">My Profile</Text>
-
-            </View>
-            <View className="flex flex-col items-center mt-5">
-              <Text className="text-xl font-RalewayRegular text-white ">Available Balance</Text>
-              <Text className="text-5xl mt-2 font-NunitoBold text-white ">  ₦{stats?.balance?.toLocaleString()}</Text>
-              <TouchableOpacity className="mt-4 bg-transparent px-6 p-2 rounded-lg border-2 border-white" onPress={()=>router.push("/(tabs)/(profile)/withdraw") }>
-                <Text className="text-white font-NunitoMedium">Withdraw</Text>
-                </TouchableOpacity>
-            </View>
-            </View>
-
+      {/* put header inside ScrollView so the whole page is scrollable */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 60 }}
+        contentContainerStyle={{  paddingBottom: 100, flexGrow: 1 }}
       >
+        <View className="bg-primary-100 p-5 mt-10 rounded-xl">
+          <View className="flex-row items-center ">
+                <TouchableOpacity onPress={()=>router.back()} className="bg-[#ECF0F4] p-2 rounded-full">
+                  <Ionicons name="chevron-back" size={22} color="black" />
+                </TouchableOpacity>
+                <Text className="text-2xl ml-10 font-RalewayBold text-white">My Profile</Text>
+
+              </View>
+              <View className="flex flex-col items-center mt-5">
+                <Text className="text-xl font-RalewayRegular text-white ">Available Balance</Text>
+                <Text className="text-5xl mt-2 font-NunitoBold text-white ">  ₦{stats?.balance?.toLocaleString()}</Text>
+                <TouchableOpacity className="mt-4 bg-transparent px-6 p-2 rounded-lg border-2 border-white" onPress={()=>router.push("/(tabs)/(profile)/withdraw") }>
+                  <Text className="text-white font-NunitoMedium">Withdraw</Text>
+                  </TouchableOpacity>
+              </View>
+              </View>
+
   
 
         
         
             {/* Profile Info Section */}
-            <View className="bg-[#F8F9FA] rounded-2xl p-3 mb-5">
+            <View className="bg-[#F8F9FA] mx-3 mt-10 rounded-2xl p-3 mb-5">
               {menuItems.map((item, index) => (
                 <TouchableOpacity
                   key={index}
@@ -134,7 +135,7 @@ export default function ProfileScreen() {
             </View>
 
             {/* Account Section */}
-            <View className="bg-[#F8F9FA] rounded-2xl p-3 mb-5">
+            <View className="bg-[#F8F9FA]  mx-3 rounded-2xl p-3 mb-5">
               {accountItems.map((item, index) => (
                 <TouchableOpacity
                   key={index}
@@ -156,7 +157,7 @@ export default function ProfileScreen() {
 
         {/* Logout */}
         <TouchableOpacity
-          className="bg-[#F8F9FA] rounded-2xl flex-row items-center justify-between p-4 mb-10"
+          className="bg-[#F8F9FA] rounded-2xl flex-row items-center justify-between p-4 mb-10  mx-3"
           onPress={() => {
             AsyncStorage.removeItem('seller_sessionIds');
               dispatch(logoutState());

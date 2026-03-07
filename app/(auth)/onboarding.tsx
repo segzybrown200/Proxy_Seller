@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ViewStyle,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -15,8 +16,10 @@ import CustomButton from "../../components/CustomButton";
 
 const SellerOnboarding = () => {
   const videoRef = useRef<any>(null);
+  const [videoReady, setVideoReady] = React.useState(false);
+
   const player = useVideoPlayer(
-    "https://res.cloudinary.com/doemqvrzy/video/upload/v1771379882/Proxy_Seller_video_yedken.mp4",
+    "https://upcdn.io/W23MTXz/raw/Proxy_Seller_video_yedken.mp4",
     (player) => {
       player.loop = true;
       // attempt to mute the player for background playback
@@ -31,6 +34,9 @@ const SellerOnboarding = () => {
       } catch (e) {
         // ignore if mute isn't supported
       }
+
+      // Set video as ready once player initializes
+      setVideoReady(true);
       player.play();
     }
   );
@@ -45,6 +51,13 @@ const SellerOnboarding = () => {
         nativeControls={false}
         contentFit="fill"
       />
+
+      {/* show loader until video buffers */}
+      {!videoReady && (
+        <View style={StyleSheet.absoluteFill}>
+          <ActivityIndicator size="large" color="white" />
+        </View>
+      )}
 
       {/* Dim overlay for readability */}
       <View style={styles.overlay} pointerEvents="none" />
