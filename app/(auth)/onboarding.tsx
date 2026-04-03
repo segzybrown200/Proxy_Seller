@@ -19,7 +19,7 @@ const SellerOnboarding = () => {
   const [videoReady, setVideoReady] = React.useState(false);
 
   const player = useVideoPlayer(
-    "https://upcdn.io/W23MTXz/raw/Proxy_Seller_video_yedken.mp4",
+    "https://res.cloudinary.com/doemqvrzy/video/upload/v1771379882/Proxy_Seller_video_yedken.mp4",
     (player) => {
       player.loop = true;
       // attempt to mute the player for background playback
