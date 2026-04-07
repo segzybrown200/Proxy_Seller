@@ -30,6 +30,7 @@ import Apple from "../../assets/icons/Apple.svg"
 import Google from "../../assets/icons/Google.svg"
 import { createSeller } from "../../api/api";
 import { showError } from "utils/toast";
+import { saveVendorId } from "utils/storage";
 
 const SignUp = () => {
   const [isSubmitting, setisSubmitting] = useState(false);
@@ -61,7 +62,7 @@ const SignUp = () => {
     formState: { errors },
   } = useForm({ resolver: yupResolver(Schema) });
 
-  const submit = (data: any) => {
+  const submit = async (data: any) => {
     const FinalData = {
       name: data.name,
       password: data.password,
@@ -70,31 +71,45 @@ const SignUp = () => {
     };
     setisSubmitting(true);
     Keyboard.dismiss();
-    createSeller(FinalData).then((response => {
+
+    try {
+      const response = await createSeller(FinalData);
+      const vendorId = response.data?.data?.vendorId;
+      if (vendorId) {
+        await saveVendorId(vendorId);
+      }
       setisSubmitting(false);
       router.push({
         pathname: '/(auth)/verifyOptions',
         params: {
           email: data.email,
           phone: FinalData.phone,
-          vendorId: response.data.data.vendorId
-        }
+          ...(vendorId ? { vendorId } : {}),
+        },
       });
-    })).catch((error) => {
+    } catch (error: any) {
       setisSubmitting(false);
-      if(error?.code === "KYC_PENDING"){
-        showError("KYC verification is still pending. Please complete your KYC to proceed.");
+      if (error?.code === 'KYC_PENDING') {
+        const vendorId = error?.details?.vendorId;
+        if (vendorId) {
+          await saveVendorId(vendorId);
+        }
+        showError('KYC verification is still pending. Please complete your KYC to proceed.');
         setTimeout(() => {
-          router.push({pathname: "/(auth)/verifyOptions", params: {email: error.details.email, phone: error.details.phone, id: error.details.vendorId}});
-        return;
+          router.push({
+            pathname: '/(auth)/verifyOptions',
+            params: {
+              email: error?.details?.email,
+              phone: error?.details?.phone,
+              ...(vendorId ? { vendorId } : {}),
+            },
+          });
         }, 3000);
-      }else{
-        setisSubmitting(false)
+      } else {
         const errorMessage = error?.message || 'An error occurred. Please try again.';
-        showError(error.message)
+        showError(errorMessage);
       }
-    })
-
+    }
   };
 
   // Normalize countries and set default selection (Nigeria if available)

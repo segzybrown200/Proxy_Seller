@@ -11,12 +11,10 @@ import {
   Linking,
 } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useSelector } from 'react-redux'
-import { selectUser } from '../../global/authSlice'
 import Ionicons from 'react-native-vector-icons/Ionicons'
 import { vendorAddress } from 'api/api'
 import { showError, showSuccess } from 'utils/toast'
+import { getVendorId, saveVendorId } from 'utils/storage'
 
 // Replace with your Google Places API key or wire it from secure env
 const GOOGLE_PLACES_API_KEY = 'AIzaSyCLCcDMey2l91ZTwuT3avheF5R85-klUcM' // <YOUR_GOOGLE_PLACES_API_KEY>
@@ -35,9 +33,26 @@ const AddAddress = () => {
   const [city, setCity] = useState<string | null>(null)
   const [country, setCountry] = useState<string | null>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
-  const { vendorId } = useLocalSearchParams();
+  const { vendorId: vendorIdParam } = useLocalSearchParams();
+  const [vendorId, setVendorId] = useState<string | null>(vendorIdParam ? String(vendorIdParam) : null)
 
-
+  useEffect(() => {
+    let active = true
+    const syncVendorId = async () => {
+      if (vendorIdParam) {
+        const id = String(vendorIdParam)
+        setVendorId(id)
+        await saveVendorId(id)
+        return
+      }
+      const storedId = await getVendorId()
+      if (active && storedId) setVendorId(storedId)
+    }
+    syncVendorId()
+    return () => {
+      active = false
+    }
+  }, [vendorIdParam])
 
 
   useEffect(() => {
@@ -115,6 +130,10 @@ const AddAddress = () => {
   }
 
   const saveAddress = async () => {
+    if (!vendorId) {
+      showError('Vendor ID not found. Please restart registration or try again.');
+      return;
+    }
     setLoading(true)
     try {
       // Build payload - prefer structured values we parsed, fall back to the free-text query
@@ -126,7 +145,6 @@ const AddAddress = () => {
         country: country ?? '',
         userId: vendorId,
       }
-
 
       console.log(payload)
       // Call API

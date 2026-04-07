@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import { Alert, AppState, AppStateStatus, Platform } from "react-native";
-import messaging from "@react-native-firebase/messaging";
 import axios from "axios";
 import { io, Socket } from "socket.io-client";
 import * as ImagePicker from "expo-image-picker";
@@ -12,8 +11,8 @@ import Constants from "expo-constants";
 /* ==============================
    🔧 CONFIGURATION
    ============================== */
-const API_URL = "https://proxy-backend-6of2.onrender.com/api"; // change to your backend base
-const SOCKET_URL = "https://proxy-backend-6of2.onrender.com"; // same origin as backend
+const API_URL = "https://proxy-backend-1rfl.onrender.com/api"; // change to your backend base
+const SOCKET_URL = "https://proxy-backend-1rfl.onrender.com"; // same origin as backend
 
 /* ==============================
    🧠 HOOK: useSessionAndSocket

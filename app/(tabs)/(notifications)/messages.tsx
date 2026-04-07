@@ -189,7 +189,7 @@ const Chat = () => {
     onSocketReady = () => () => {} 
   } = session || {};
 
-  const API_URL = "https://proxy-backend-6of2.onrender.com/api";
+  const API_URL = "https://proxy-backend-1rfl.onrender.com/api";
 
   useEffect(() => {
     let isMounted = true;

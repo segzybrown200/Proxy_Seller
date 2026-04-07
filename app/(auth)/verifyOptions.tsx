@@ -5,18 +5,38 @@ import {
   TouchableOpacity,
   SafeAreaView,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import CustomButton from "../../components/CustomButton";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import Fontisto from '@expo/vector-icons/Fontisto';
 import { router, useLocalSearchParams } from "expo-router";
 import { showError } from "utils/toast";
 import { sendOTPEmail } from "api/api";
+import { getVendorId, saveVendorId } from "utils/storage";
 
 const verifyOptions = () => {
   const [isSubmitting, setisSubmitting] = useState(false);
   const [method, setMethod] = useState<'whatsapp'|'email'>('whatsapp');
-  const {email, phone, vendorId} = useLocalSearchParams()
+  const { email, phone, vendorId: vendorIdParam } = useLocalSearchParams();
+  const [vendorId, setVendorId] = useState<string | null>(vendorIdParam ? String(vendorIdParam) : null);
+
+  useEffect(() => {
+    let active = true;
+    const syncVendorId = async () => {
+      if (vendorIdParam) {
+        const id = String(vendorIdParam);
+        setVendorId(id);
+        await saveVendorId(id);
+        return;
+      }
+      const storedId = await getVendorId();
+      if (active && storedId) setVendorId(storedId);
+    };
+    syncVendorId();
+    return () => {
+      active = false;
+    };
+  }, [vendorIdParam]);
 
   const handleNext = () => {
     // navigate and include selected method as query param
@@ -25,7 +45,15 @@ const verifyOptions = () => {
       sendOTPEmail({email: email as string, phone: phone as string, verifyOption: 'whatsapp'}).then((response) => {
         console.log("OTP sent via WhatsApp:", response);
         setisSubmitting(false);
-        router.replace({pathname: `/(auth)/verify-email` , params: {email: email, phone: phone,vendorId: vendorId, verifyOptions: 'whatsapp'}});
+        router.replace({
+          pathname: `/(auth)/verify-email`,
+          params: {
+            email: email,
+            phone: phone,
+            ...(vendorId ? { vendorId } : {}),
+            verifyOptions: 'whatsapp',
+          },
+        });
       }).catch((error) => {
         setisSubmitting(false);
         showError("Failed to send OTP via WhatsApp. Please try again.");
@@ -35,7 +63,15 @@ const verifyOptions = () => {
       sendOTPEmail({email: email as string, phone: phone as string, verifyOption: 'email'}).then((response) => {
         console.log("OTP sent via Email:", response.data);
         setisSubmitting(false);
-        router.replace({pathname: `/(auth)/verify-email` , params: {email: email, phone: phone, vendorId: vendorId, verifyOptions: 'email'}});
+        router.replace({
+          pathname: `/(auth)/verify-email`,
+          params: {
+            email: email,
+            phone: phone,
+            ...(vendorId ? { vendorId } : {}),
+            verifyOptions: 'email',
+          },
+        });
       }).catch((error) => {
         console.log(error)
         setisSubmitting(false);

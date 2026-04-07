@@ -14,6 +14,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import OtpTextInput from 'react-native-text-input-otp'
 import { verifyOTP, sendOTPEmail } from "api/api";
 import { showError } from "utils/toast";
+import { getVendorId, saveVendorId } from "utils/storage";
 
 
 const verifyEmail = () => {
@@ -22,7 +23,26 @@ const verifyEmail = () => {
   const [OTP, setOTP] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(60);
   const [isResending, setIsResending] = useState(false);
-   const {email, phone, vendorId, verifyOption} = useLocalSearchParams()
+  const { email, phone, vendorId: vendorIdParam, verifyOption } = useLocalSearchParams();
+  const [vendorId, setVendorId] = useState<string | null>(vendorIdParam ? String(vendorIdParam) : null);
+
+  useEffect(() => {
+    let active = true;
+    const syncVendorId = async () => {
+      if (vendorIdParam) {
+        const id = String(vendorIdParam);
+        setVendorId(id);
+        await saveVendorId(id);
+        return;
+      }
+      const storedId = await getVendorId();
+      if (active && storedId) setVendorId(storedId);
+    };
+    syncVendorId();
+    return () => {
+      active = false;
+    };
+  }, [vendorIdParam]);
 
   const submit = () => {
     setisSubmitting(true);
@@ -36,7 +56,13 @@ const verifyEmail = () => {
     } else {
       verifyOTP({email: email as string, phone: phone as string, otp: OTP }).then((response)=>{
         setisSubmitting(false)
-        router.replace({pathname: '/(auth)/kyc', params: {email: email, phone: phone, vendorId: vendorId, token: response.data?.data?.token}});
+        const params: any = {
+          email: email,
+          phone: phone,
+          token: response.data?.data?.token,
+        };
+        if (vendorId) params.vendorId = vendorId;
+        router.replace({ pathname: '/(auth)/kyc', params });
 
       }).catch((error)=>{
         setisSubmitting(false)

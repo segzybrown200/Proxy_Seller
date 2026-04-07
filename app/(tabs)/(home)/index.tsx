@@ -22,7 +22,7 @@ import io from "socket.io-client";
 
 const screenWidth = Dimensions.get("window").width;
 
-const socket = io("https://proxy-backend-6of2.onrender.com");
+const socket = io("https://proxy-backend-1rfl.onrender.com");
 
 const SellerDashboard = () => {
   const user: any = useSelector(selectUser);

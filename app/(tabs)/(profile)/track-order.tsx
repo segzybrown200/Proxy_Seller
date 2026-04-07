@@ -27,7 +27,7 @@ import { mutate } from "swr";
 import { vendorStartDelivery, completeSelfDelivery } from "api/api";
 import * as Location from "expo-location";
 
-const socket = io("https://proxy-backend-6of2.onrender.com");
+const socket = io("https://proxy-backend-1rfl.onrender.com");
 
 const VendorPushToRidersScreen = () => {
   const { order } = useLocalSearchParams();
@@ -150,7 +150,7 @@ const VendorPushToRidersScreen = () => {
     setIsSearching(true);
     console.log(delivery.id)
     try{
-    const res = await axios.post(`https://proxy-backend-6of2.onrender.com/api/vendor/push-order-to-rider/${delivery.id}`, {}, {
+    const res = await axios.post(`https://proxy-backend-1rfl.onrender.com/api/vendor/push-order-to-rider/${delivery.id}`, {}, {
       headers: {
         Authorization: `Bearer ${token}`
       }

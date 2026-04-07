@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import CustomButton from "../../components/CustomButton";
 import FormField from "../../components/FormFields";
 import { showError, showSuccess } from "utils/toast";
 import { UploadKYC, verifyNIN } from "api/api";
+import { getVendorId, saveVendorId } from "utils/storage";
 
 const KYCScreen = () => {
   const [idImage, setIdImage] = useState<string | null>(null);
@@ -25,7 +26,26 @@ const KYCScreen = () => {
   const [verifyingNin, setVerifyingNin] = useState(false);
   const [verifiedFullName, setVerifiedFullName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { token, email, phone, vendorId } = useLocalSearchParams();
+  const { token, email, phone, vendorId: vendorIdParam } = useLocalSearchParams();
+  const [vendorId, setVendorId] = useState<string | null>(vendorIdParam ? String(vendorIdParam) : null);
+
+  useEffect(() => {
+    let active = true;
+    const syncVendorId = async () => {
+      if (vendorIdParam) {
+        const id = String(vendorIdParam);
+        setVendorId(id);
+        await saveVendorId(id);
+        return;
+      }
+      const storedId = await getVendorId();
+      if (active && storedId) setVendorId(storedId);
+    };
+    syncVendorId();
+    return () => {
+      active = false;
+    };
+  }, [vendorIdParam]);
 
 
   const pickImage = async (type: "id" | "selfie") => {
@@ -182,7 +202,9 @@ const KYCScreen = () => {
       setNin('');
       setNinVerified(false);
       setVerifiedFullName(null);
-      router.replace({ pathname: '/(auth)/location', params: { email: email, phone: phone, vendorId: vendorId } });
+      const nextParams: any = { email: email, phone: phone };
+      if (vendorId) nextParams.vendorId = vendorId;
+      router.replace({ pathname: '/(auth)/location', params: nextParams });
       }).catch((error) => {
         console.log(error)
         setLoading(false)
