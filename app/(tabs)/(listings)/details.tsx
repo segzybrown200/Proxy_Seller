@@ -12,6 +12,8 @@ import {
 import { Image } from 'expo-image';
 import { Ionicons, Entypo } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import { Share } from 'react-native';
+import { API_URL } from "../../../api/api";
 
 const { width } = Dimensions.get("window");
 
@@ -30,6 +32,23 @@ export default function ListDetailsScreen() {
       setRefreshing(false);
     }
   }, []);
+
+  const shareProduct = async () => {
+    try {
+      const productId = params?.id || "";
+      const productRoute = "/product"; // adjust this if your backend mounts the product share router under a different path
+      const productLink = productId
+        ? `${API_URL}${productRoute}/${encodeURIComponent(productId)}`
+        : API_URL;
+      const message = `Check out this product: ${title} for ${displayPrice}. View it here: ${productLink}`;
+
+      await Share.share({
+        message,
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
 
   const {
     title,
@@ -275,6 +294,8 @@ export default function ListDetailsScreen() {
               )}
             </View>
 
+
+
             <View className="flex-row items-center">
               <View className={`px-3 py-1 rounded-full ${
                 (status === 'APPROVED' || displayStatus === 'Approved') ? 'bg-green-100' : (status === 'PENDING' || displayStatus === 'Pending') ? 'bg-yellow-100' : 'bg-red-100'
@@ -287,9 +308,26 @@ export default function ListDetailsScreen() {
               </View>
             </View>
           </View>
+          
 
           {/* Divider */}
           <View className="h-[1px] bg-gray-200 my-4" />
+
+                 {/* Share Section */}
+          <View className="mb-10">
+            <TouchableOpacity 
+              onPress={shareProduct}
+              className="bg-blue-600 rounded-xl p-5 flex-row items-center justify-between active:bg-blue-700"
+            >
+              <View className="flex-1">
+                <Text className="text-white font-RalewayBold text-lg">Share This Listing</Text>
+                <Text className="text-blue-100 text-sm font-NunitoLight mt-1">Share with potential buyers via message or social media</Text>
+              </View>
+              <View className="ml-4 bg-white bg-opacity-20 p-3 rounded-lg">
+                <Ionicons name="share-social" size={28} color="black" />
+              </View>
+            </TouchableOpacity>
+          </View>
 
           {/* Item Details */}
           <View className="flex-row justify-between mb-3">
@@ -383,10 +421,12 @@ export default function ListDetailsScreen() {
           )}
 
           {/* Description */}
-          <View className="pb-10">
+          <View className="pb-6">
             <Text className="text-gray-400 text-base font-RalewayMedium mb-2">Description</Text>
             <Text className="text-gray-600 text-lg font-NunitoLight leading-5">{description}</Text>
           </View>
+
+   
         </View>
       </ScrollView>
     </SafeAreaView>
