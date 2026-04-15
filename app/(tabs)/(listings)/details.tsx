@@ -316,7 +316,7 @@ export default function ListDetailsScreen() {
                  {/* Share Section */}
           <View className="mb-10">
             <TouchableOpacity 
-              onPress={shareProduct}
+              onPress={shareProduct} 
               className="bg-blue-600 rounded-xl p-5 flex-row items-center justify-between active:bg-blue-700"
             >
               <View className="flex-1">
